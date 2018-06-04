@@ -156,14 +156,6 @@ parser.add_argument("-m", "--matrixname",
                     metavar='STR',
                     default="subtype_count_matrix")
 
-parser.add_argument("-o", "--filterout",
-                    help="in VCF or plain text modes, re-reads input \
-                        file and writes to STDOUT, omitting records that occur \
-                        in the detected outliers. To write to a new file, use \
-                        standard output redirection [ > out.vcf] at the end of \
-                        the doomsayer.py command",
-                    action="store_true")
-
 #-----------------------------------------------------------------------------
 # Decomposition and outlier detection args
 #-----------------------------------------------------------------------------
@@ -191,18 +183,6 @@ parser.add_argument("-r", "--rank",
                     metavar='INT',
                     default=0)
 
-# filtermode_opts = ["fold", "sd", "chisq", "nmf", "pca", "none"]
-filtermode_opts = ["ee", "lof", "if", "any", "any2", "all", "none"]
-parser.add_argument("-F", "--filtermode",
-                    help="Method for detecting outliers. Must be one of \
-                        {"+", ".join(filtermode_opts)+"}. \
-                        Defaults to ee.",
-                    nargs='?',
-                    type=str,
-                    choices=filtermode_opts,
-                    metavar='STR',
-                    default="ee")
-
 parser.add_argument("-t", "--threshold",
                     help="threshold for fraction of potential outliers",
                     nargs='?',
@@ -220,30 +200,6 @@ parser.add_argument("-l", "--length",
                     choices=motif_length_opts,
                     metavar='INT',
                     default=3)
-
-#-----------------------------------------------------------------------------
-# Report args
-#-----------------------------------------------------------------------------
-parser.add_argument("-R", "--report",
-                    help="automatically generates an HTML-formatted report in \
-                        R.",
-                    action="store_true")
-
-parser.add_argument("-G", "--staticplots",
-                    help="use static ggplot figures instead of interactive \
-                        plotly figures",
-                    action="store_true")
-
-template_opts = ["diagnostics", "msa"]
-parser.add_argument("-T", "--template",
-                    help="Template for diagnostic report. Must be one of \
-                        {"+", ".join(template_opts)+"}. \
-                        Defaults to diagnostics.",
-                    nargs='?',
-                    type=str,
-                    choices=template_opts,
-                    metavar='STR',
-                    default="diagnostics")
 
 #-----------------------------------------------------------------------------
 # initialize args and configure runtime logs
@@ -392,12 +348,6 @@ log.debug("M_f matrix (mutation spectra) saved to: " + paths['M_path_rates'])
 ###############################################################################
 
 decomp_data = DecompModel(M_f, args.rank, args.seed, args.decomp)
-
-# for key in sorted(decomp_data.evar_dict.keys()):
-#     log.info("Explained variance for first " + 
-#         str(key) + " " + args.decomp.upper() + " components: " + 
-#         str(decomp_data.evar_dict[key]))
-    
 M_d = decomp_data.W
 
 # W matrix (contributions)
@@ -409,67 +359,6 @@ log.debug("W matrix saved to: " + paths['W_path'])
 paths['H_path'] = projdir + "/H_loadings.txt"
 writeH(decomp_data.H, paths['H_path'], subtypes_dict)
 log.debug("H matrix saved to: " + paths['H_path'])
-
-###############################################################################
-# Perform outlier detection
-###############################################################################
-if args.filtermode == "none":
-    log.warning("No outlier detection will be performed")
-else:
-    kd_lists = DetectOutliers(M_d, samples,
-        args.filtermode, args.threshold, projdir, args.seed)
-
-    paths['keep_path'] = projdir + "/doomsayer_keep.txt"
-    keep_fh = open(paths['keep_path'], 'wt')
-    for sample in kd_lists.keep:
-        keep_fh.write("%s\n" % sample)
-    keep_fh.close()
-    log.debug("Kept samples saved to: " + paths['keep_path'])
-    
-    paths['drop_path'] = projdir + "/doomsayer_drop.txt"
-    drop_fh = open(paths['drop_path'], 'wt')
-    for sample in kd_lists.drop:
-        drop_fh.write("%s\n" % sample)
-    drop_fh.close()
-    
-    log.debug("Outlier samples saved to: " + paths['drop_path'])
-
-    if len(kd_lists.drop) > 0:
-        log.info(str(len(kd_lists.drop)) + " potential outliers found")
-        log.info(str(len(kd_lists.keep)) + " samples OK")
-
-###############################################################################
-# auto-generate diagnostic report in R
-###############################################################################
-if(args.report and args.matrixname == "subtype_count_matrix"):
-
-    writeReportConfig(paths, projdir, args)
-    log.debug("Diagnostics config file written to: " + projdir + "/config.yaml")
-
-    template_src = sys.path[0] + "/report_templates/" + args.template + ".Rmd"
-    template_dest = projdir + "/report.Rmd"
-    shutil.copy(template_src, template_dest)
-    copy_tree(sys.path[0] + "/report_templates/R", projdir + "/R")
-    log.debug("Template copied from " + template_src + " to " + template_dest)
-
-    cmd = "Rscript --vanilla generate_report.r " + projdir + "/config.yaml"
-    log.debug("Report will be generated with the following command: " + cmd)
-    subprocess.call(cmd, shell=True)
-
-###############################################################################
-# write output in same format as input, with bad samples removed
-###############################################################################
-if args.filterout:
-    if(args.mode == "vcf" and not(args.input.lower().endswith(('.txt')))):
-        log.debug("Filtering input VCF using sample file " + paths['keep_path'])
-        filterVCF(args.input, kd_lists.keep)
-
-    elif args.mode =="txt":
-        log.debug("Filtering input data using sample file " + paths['keep_path'])
-        filterTXT(args.input, kd_lists.keep)
-
-    else:
-        log.error("Input not compatible with auto-filtering function")
 
 ###############################################################################
 # Finish
