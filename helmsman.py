@@ -183,13 +183,6 @@ parser.add_argument("-r", "--rank",
                     metavar='INT',
                     default=0)
 
-parser.add_argument("-t", "--threshold",
-                    help="threshold for fraction of potential outliers",
-                    nargs='?',
-                    type=float,
-                    metavar='FLOAT',
-                    default=0.05)
-
 motif_length_opts = [1,3,5,7]
 mlo_str = ",".join(str(x) for x in motif_length_opts)
 
