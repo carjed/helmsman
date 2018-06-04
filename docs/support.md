@@ -1,0 +1,2 @@
+# Contact
+If you need any further help, come across a bug, or have a feature request, feel free to [open an issue](https://github.com/carjed/helmsman/issues/new) or [contact me directly](mailto:jed.e.carlson@gmail.com). If you are reporting a bug or unexpected output, please run Helmsman with the `--verbose` option and include this output in your inquiry.

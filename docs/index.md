@@ -64,3 +64,69 @@ python helmsman.py --input /path/to/input.vcf --fastafile /path/to/reference_gen
 
 <!-- ### Citation
 If you use Helmsman in your research, please cite our [paper](#) (citation pending). -->
+
+# Usage
+
+```
+usage: helmsman.py [-h] [-c [INT]] [-S [INT]] [-v] [-V] [-M [STR]] -i
+                   [/path/to/input.vcf] [-w] [-f [/path/to/genome.fa]]
+                   [-g [/path/to/sample_batches.txt]]
+                   [-s [/path/to/kept_samples.txt]] [-C [INT]] [-X [INT]]
+                   [-p [/path/to/project_directory]] [-m [STR]] [-d [STR]]
+                   [-r [INT]] [-t [FLOAT]] [-l [INT]]
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -c [INT], --cpus [INT]
+                        number of CPUs. Must be integer value between 1 and 10
+  -S [INT], --seed [INT]
+                        random seed for NMF and outlier detection
+  -v, --verbose         Enable verbose logging
+  -V, --version         show program's version number and exit
+  -M [STR], --mode [STR]
+                        Mode for parsing input. Must be one of {vcf, agg,
+                        txt}. Defaults to VCF mode.
+  -i [/path/to/input.vcf], --input [/path/to/input.vcf]
+                        In VCF mode (default) input file is a VCF or text file
+                        containing paths of multiple VCFs. Defaults to accept
+                        input from STDIN with "--input -". In aggregation
+                        mode, input file is a text file containing mutation
+                        subtype count matrices, or paths of multiple such
+                        matrices. In plain text mode, input file is tab-
+                        delimited text file containing 5 columns: CHR, POS,
+                        REF, ALT, ID
+  -w, --rowwise         Compile mutation spectra matrix from VCF files
+                        containing non-overlapping samples.
+  -f [/path/to/genome.fa], --fastafile [/path/to/genome.fa]
+                        reference fasta file
+  -g [/path/to/sample_batches.txt], --groupfile [/path/to/sample_batches.txt]
+                        two-column tab-delimited file containing sample IDs
+                        (column 1) and group membership (column 2) for pooled
+                        analysis
+  -s [/path/to/kept_samples.txt], --samplefile [/path/to/kept_samples.txt]
+                        file with sample IDs to include (one per line)
+  -C [INT], --minsnvs [INT]
+                        minimum # of SNVs per individual to be included in
+                        analysis. Default is 0.
+  -X [INT], --maxac [INT]
+                        maximum allele count for SNVs to keep in analysis.
+                        Defaults to 0 (all variants)
+  -p [/path/to/project_directory], --projectdir [/path/to/project_directory]
+                        directory to store output files (do NOT include a
+                        trailing '/'). Defaults to /mnt/norbert/home/jedidiah/
+                        projects/helmsman/doomsayer_output
+  -m [STR], --matrixname [STR]
+                        filename prefix for M matrix [without extension]
+  -d [STR], --decomp [STR]
+                        mode for matrix decomposition. Must be one of {nmf,
+                        pca}. Defaults to pca.
+  -r [INT], --rank [INT]
+                        Rank for Matrix decomposition. If --decomp pca, will
+                        select first r components. Default [0] will force
+                        Doomsayer to iterate through multiple ranks to find an
+                        optimal choice.
+  -t [FLOAT], --threshold [FLOAT]
+                        threshold for fraction of potential outliers
+  -l [INT], --length [INT]
+                        motif length. Allowed values are 1,3,5,7
+```
