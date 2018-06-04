@@ -1,12 +1,14 @@
 
 ![](assets/helmsman_logo2.png)
 
+[![Docs](https://img.shields.io/badge/docs-latest-blue.svg)](http://www.jedidiahcarlson.com/docs/helmsman) [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg?style=flat)](https://opensource.org/licenses/MIT) [![Build Status](https://travis-ci.org/carjed/helmsman.svg?branch=master)](https://travis-ci.org/carjed/helmsman)
+
 > O be swift—<br />
 we have always known you wanted us.
 
 _(from 'The Helmsman' by Hilda Doolittle [1886 - 1961])_
 
-[![Docs](https://img.shields.io/badge/docs-latest-blue.svg)](http://www.jedidiahcarlson.com/docs/helmsman) [![Build Status](https://travis-ci.org/carjed/helmsman.svg?branch=master)](https://travis-ci.org/carjed/helmsman)
+------------------------------------
 
 # Introduction
 
