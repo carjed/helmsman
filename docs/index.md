@@ -6,7 +6,7 @@ we have always known you wanted us.
 
 _(from 'The Helmsman' by Hilda Doolittle [1886 - 1961])_
 
-[![Docs](https://img.shields.io/badge/docs-latest-blue.svg)](http://www.jedidiahcarlson.com/docs/helmsman) [![Build Status](https://travis-ci.org/carjed/helmsman.svg?branch=master)](https://travis-ci.org/carjed/helmsman)
+[![Build Status](https://travis-ci.org/carjed/helmsman.svg?branch=master)](https://travis-ci.org/carjed/helmsman)
 
 # Introduction
 
