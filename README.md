@@ -64,3 +64,6 @@ python helmsman.py --input /path/to/input.vcf --fastafile /path/to/reference_gen
 
 <!-- ### Citation
 If you use Helmsman in your research, please cite our [paper](#) (citation pending). -->
+
+[logo](https://www.kisspng.com/png-computer-icons-icon-design-2740670/)
+[logo font](http://www.1001fonts.com/sailor-scrawl-font.html)
