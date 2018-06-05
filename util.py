@@ -335,6 +335,70 @@ def processVCF(args, inputvcf, subtypes_dict, par):
         return out
 
 ###############################################################################
+# process MAF files
+###############################################################################
+def processMAF(args, subtypes_dict):
+    
+    fasta_reader = Fasta(args.fastafile, read_ahead=1000000)
+    
+    nbp = (args.length-1)//2
+    samples_dict = {}
+
+    # M = np.zeros((len(samples), len(subtypes_dict)))
+    numsites_keep = 0
+    numsites_skip = 0
+    chrseq = '0'
+
+    f = open(args.input, 'r', encoding = "ISO-8859-1")
+    # with open(args.input, 'r') as f:
+        # reader = csv.reader(f, delimiter='\t')
+    reader = csv.DictReader(filter(lambda row: row[0]!='#', f), delimiter='\t')
+    counter = 0
+    for row in reader:
+        # print(row)
+        chrom = row['Chromosome']
+        pos = int(row['Start_position'])
+        ref = row['Reference_Allele']
+        alt = row['Tumor_Seq_Allele2']
+        sample = row[args.idcol]
+
+        # if chrom != chrseq:
+        #     sequence = fasta_reader[chrom]
+        #     chrseq = chrom
+
+        if(row['Variant_Type'] == "SNP"):
+            counter += 1
+            mu_type = ref + alt
+            category = getCategory(mu_type)
+            if nbp > 0:
+                lseq = fasta_reader[chrom][pos-(nbp+1):pos+nbp].seq
+            else:
+                lseq = sequence[pos-1].seq
+                # eprint("lseq:", lseq)
+            motif_a = getMotif(pos, lseq)
+            subtype = str(category + "." + motif_a)
+            st = subtypes_dict[subtype]
+
+            if sample not in samples_dict:
+                samples_dict[sample] = {}
+
+            if subtype not in samples_dict[sample]:
+                samples_dict[sample][subtype] = 1
+            else:
+                samples_dict[sample][subtype] += 1
+
+        if (counter%1000 == 0):
+            util_log.debug(args.input + ": " + 
+                str(counter) + " sites counted")
+
+    M = DataFrame(samples_dict).T.fillna(0).values
+    samples = sorted(samples_dict)
+
+    out = collections.namedtuple('Out', ['M', 'samples'])(M, samples)
+    return out
+
+
+###############################################################################
 # process tab-delimited text file, containing the following columns:
 # CHR    POS    REF    ALT    SAMPLE_ID
 ###############################################################################

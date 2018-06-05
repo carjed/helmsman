@@ -66,7 +66,7 @@ parser.add_argument("-V", "--version",
 #-----------------------------------------------------------------------------
 # Input args
 #-----------------------------------------------------------------------------
-mode_opts = ["vcf", "agg", "txt"]
+mode_opts = ["vcf", "maf", "agg", "txt"]
 parser.add_argument("-M", "--mode",
                     help="Mode for parsing input. Must be one of \
                         {"+", ".join(mode_opts)+ "}. \
@@ -103,6 +103,13 @@ parser.add_argument("-f", "--fastafile",
                     type=str,
                     metavar='/path/to/genome.fa',
                     default="chr20.fasta.gz")
+
+parser.add_argument("-D", "--idcol",
+                    help="if input is MAF file, specify grouping column.",
+                    nargs='?',
+                    metavar='STR',
+                    default='Tumor_Sample_Barcode',
+                    type=str)
 
 parser.add_argument("-g", "--groupfile",
                     help="two-column tab-delimited file containing sample IDs \
@@ -281,6 +288,11 @@ if args.mode == "vcf":
             for M_sub in results:
                 M = np.add(M, M_sub)
             samples = np.array([getSamplesVCF(args, vcf_list[1])])
+
+elif args.mode == "maf":
+    data = processMAF(args, subtypes_dict)
+    M = data.M
+    samples = np.array([data.samples], dtype=str)
 
 elif args.mode == "txt":
     data = processTxt(args, subtypes_dict)
