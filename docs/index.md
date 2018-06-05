@@ -1,5 +1,5 @@
 
-![](assets/helmsman_logo2.png)
+![](https://raw.githubusercontent.com/carjed/helmsman/master/assets/helmsman_logo2.png)
 
 [![DOI](https://zenodo.org/badge/136064814.svg)](https://zenodo.org/badge/latestdoi/136064814) [![Docs](https://img.shields.io/badge/docs-latest-blue.svg)](http://www.jedidiahcarlson.com/docs/helmsman) [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg?style=flat)](https://opensource.org/licenses/MIT) [![Build Status](https://travis-ci.org/carjed/helmsman.svg?branch=master)](https://travis-ci.org/carjed/helmsman)
 
