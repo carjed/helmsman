@@ -4,3 +4,4 @@ deprecated/**
 __pycache__/**
 .Rhistory
 *.pyc
+assets/*.pptx
