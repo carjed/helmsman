@@ -350,8 +350,7 @@ def processMAF(args, subtypes_dict):
     chrseq = '0'
 
     f = open(args.input, 'r', encoding = "ISO-8859-1")
-    # with open(args.input, 'r') as f:
-        # reader = csv.reader(f, delimiter='\t')
+
     reader = csv.DictReader(filter(lambda row: row[0]!='#', f), delimiter='\t')
     counter = 0
     for row in reader:
