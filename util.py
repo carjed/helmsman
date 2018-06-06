@@ -355,23 +355,23 @@ def processMAF(args, subtypes_dict):
     reader = csv.DictReader(filter(lambda row: row[0]!='#', f), delimiter='\t')
     counter = 0
     for row in reader:
-        # print(row)
-        chrom = row['Chromosome']
-        pos = int(row['Start_position'])
-        ref = row['Reference_Allele']
-        alt = row['Tumor_Seq_Allele2']
-        sample = row[args.idcol]
-
-        # if chrom != chrseq:
-        #     sequence = fasta_reader[chrom]
-        #     chrseq = chrom
 
         if(row['Variant_Type'] == "SNP"):
+            
+            pos = int(row['Start_position'])
+            ref = row['Reference_Allele']
+            alt = row['Tumor_Seq_Allele2']
+            sample = row[args.idcol]
+            
+            if row['Chromosome'] != chrseq:
+                sequence = fasta_reader[row['Chromosome']]
+                chrseq = row['Chromosome']
+            
             counter += 1
             mu_type = ref + alt
             category = getCategory(mu_type)
             if nbp > 0:
-                lseq = fasta_reader[chrom][pos-(nbp+1):pos+nbp].seq
+                lseq = sequence[pos-(nbp+1):pos+nbp].seq
             else:
                 lseq = sequence[pos-1].seq
                 # eprint("lseq:", lseq)
@@ -387,9 +387,9 @@ def processMAF(args, subtypes_dict):
             else:
                 samples_dict[sample][subtype] += 1
 
-        if (counter%1000 == 0):
-            util_log.debug(args.input + ": " + 
-                str(counter) + " sites counted")
+            if (counter%1000 == 0):
+                util_log.debug(args.input + ": " + 
+                    str(counter) + " sites counted")
 
     M = DataFrame(samples_dict).T.fillna(0).values
     samples = sorted(samples_dict)
