@@ -4,6 +4,11 @@
 from __future__ import print_function
 import os
 import sys
+import warnings
+
+# ignore nuisance warnings when loading nimfa package
+warnings.filterwarnings("ignore", category=UserWarning)
+
 from logging import StreamHandler, DEBUG, getLogger as realGetLogger, Formatter
 from colorama import Fore, Back, init, Style
 import textwrap
@@ -24,11 +29,6 @@ from scipy.stats import chisquare
 import nimfa
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
-
-# outlier detection algorithms
-from sklearn.neighbors import LocalOutlierFactor
-from sklearn.covariance import EllipticEnvelope
-from sklearn.ensemble import IsolationForest
 
 # vcf/fasta parsing
 import cyvcf2 as vcf
@@ -429,7 +429,6 @@ def processMAF(args, subtypes_dict):
 
     out = collections.namedtuple('Out', ['M', 'samples'])(M, samples)
     return out
-
 
 ###############################################################################
 # process tab-delimited text file, containing the following columns:
