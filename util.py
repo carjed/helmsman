@@ -108,11 +108,11 @@ util_log = getLogger(__name__, level="DEBUG")
 def getCategory(mu_type):
     if re.match("^[ACGT]*$", mu_type):
         if (mu_type == "AC" or mu_type == "TG"):
-            category = "A_C"
+            category = "T_G"
         if (mu_type == "AG" or mu_type == "TC"):
-            category = "A_G"
+            category = "T_C"
         if (mu_type == "AT" or mu_type == "TA"):
-            category = "A_T"
+            category = "T_A"
         if (mu_type == "CA" or mu_type == "GT"):
             category = "C_A"
         if (mu_type == "CG" or mu_type == "GC"):
@@ -134,7 +134,7 @@ def getMotif(pos, sequence):
     m1 = motif[central_base]
     m2 = altmotif[central_base]
 
-    if m1 < m2:
+    if (m1 == "C" or m1 == "T"):
         motif_a = motif
     else:
         motif_a = altmotif
@@ -145,7 +145,7 @@ def getMotif(pos, sequence):
 # define k-mer mutation subtypes
 ###############################################################################
 def indexSubtypes(motiflength):
-    categories = ["A_C", "A_G", "A_T", "C_G", "C_T", "C_A"]
+    categories = ["T_G", "T_C", "T_A", "C_G", "C_T", "C_A"]
     bases = ["A", "C", "G", "T"]
     flank = (motiflength-1)//2
 
@@ -165,7 +165,7 @@ def indexSubtypes(motiflength):
 
                 subtypes_list.append(subtype)
     else:
-        ext = [".A", ".C"]
+        ext = [".T", ".C"]
         extr = list(np.repeat(ext,3))
         subtypes_list = [m+n for m,n in zip(categories,extr)]
 
@@ -174,8 +174,9 @@ def indexSubtypes(motiflength):
     for subtype in sorted(subtypes_list):
         subtypes_dict[subtype] = i
         i += 1
-        util_log.debug("subtype " + str(i) + " of " + 
-            str(len(subtypes_dict.keys())) + " indexed: " + subtype)
+
+    util_log.debug(str(len(subtypes_dict.keys())) + " " + 
+        str(motiflength) + "-mer subtypes indexed")
 
     return subtypes_dict
 
@@ -293,6 +294,7 @@ def processVCF(args, inputvcf, subtypes_dict, par):
                 category = getCategory(mu_type)
                 motif_a = getMotif(record.POS, lseq)
                 subtype = str(category + "." + motif_a)
+                # util_log.debug(mu_type + ":" + category + ":" + ":" + lseq + ":" + motif_a + ":" + subtype)
 
                 if subtype in subtypes_dict:
                     st = subtypes_dict[subtype]
