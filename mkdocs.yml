@@ -3,6 +3,7 @@ site_url: https://github.com/carjed/helmsman
 repo_url: https://github.com/carjed/helmsman
 pages:
   - Home: index.md
+  - Usage: usage.md
   - FAQ: faq.md
   - Support: support.md
 theme: cinder
