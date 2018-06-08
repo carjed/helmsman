@@ -4,6 +4,11 @@
 from __future__ import print_function
 import os
 import sys
+import warnings
+
+# ignore nuisance warnings when loading nimfa package
+warnings.filterwarnings("ignore", category=UserWarning)
+
 from logging import StreamHandler, DEBUG, getLogger as realGetLogger, Formatter
 from colorama import Fore, Back, init, Style
 import textwrap
@@ -24,11 +29,6 @@ from scipy.stats import chisquare
 import nimfa
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
-
-# outlier detection algorithms
-from sklearn.neighbors import LocalOutlierFactor
-from sklearn.covariance import EllipticEnvelope
-from sklearn.ensemble import IsolationForest
 
 # vcf/fasta parsing
 import cyvcf2 as vcf
@@ -108,11 +108,11 @@ util_log = getLogger(__name__, level="DEBUG")
 def getCategory(mu_type):
     if re.match("^[ACGT]*$", mu_type):
         if (mu_type == "AC" or mu_type == "TG"):
-            category = "A_C"
+            category = "T_G"
         if (mu_type == "AG" or mu_type == "TC"):
-            category = "A_G"
+            category = "T_C"
         if (mu_type == "AT" or mu_type == "TA"):
-            category = "A_T"
+            category = "T_A"
         if (mu_type == "CA" or mu_type == "GT"):
             category = "C_A"
         if (mu_type == "CG" or mu_type == "GC"):
@@ -134,7 +134,7 @@ def getMotif(pos, sequence):
     m1 = motif[central_base]
     m2 = altmotif[central_base]
 
-    if m1 < m2:
+    if (m1 == "C" or m1 == "T"):
         motif_a = motif
     else:
         motif_a = altmotif
@@ -145,7 +145,7 @@ def getMotif(pos, sequence):
 # define k-mer mutation subtypes
 ###############################################################################
 def indexSubtypes(motiflength):
-    categories = ["A_C", "A_G", "A_T", "C_G", "C_T", "C_A"]
+    categories = ["T_G", "T_C", "T_A", "C_G", "C_T", "C_A"]
     bases = ["A", "C", "G", "T"]
     flank = (motiflength-1)//2
 
@@ -165,7 +165,7 @@ def indexSubtypes(motiflength):
 
                 subtypes_list.append(subtype)
     else:
-        ext = [".A", ".C"]
+        ext = [".T", ".C"]
         extr = list(np.repeat(ext,3))
         subtypes_list = [m+n for m,n in zip(categories,extr)]
 
@@ -174,32 +174,52 @@ def indexSubtypes(motiflength):
     for subtype in sorted(subtypes_list):
         subtypes_dict[subtype] = i
         i += 1
-        util_log.debug("subtype " + str(i) + " of " + 
-            str(len(subtypes_dict.keys())) + " indexed: " + subtype)
+
+    util_log.debug(str(len(subtypes_dict.keys())) + " " + 
+        str(motiflength) + "-mer subtypes indexed")
 
     return subtypes_dict
 
 ###############################################################################
 # Build dictionary with sample ID as key, group ID as value
 ###############################################################################
-def indexGroups(groupfile):
+def indexGroups(samplefile, groupvar):
     sg_dict = {}
-    with open(groupfile) as sg_file:
-        for line in sg_file:
-           (key, val) = line.split()
-           sg_dict[key] = val
+    
+    f = open(samplefile, 'r', encoding = "utf-8")
+    reader = csv.DictReader(f, delimiter='\t')
 
-    samples = sorted(list(set(sg_dict.values())))
-    return samples
+    for row in reader:
+        sg_dict[row['ID']] = row[groupvar]
+    
+    # with open(groupfile) as sg_file:
+    #     for line in sg_file:
+    #       (key, val) = line.split()
+    #       sg_dict[key] = val
+    return sg_dict
+    # samples = sorted(list(set(sg_dict.values())))
+    # return samples
 
+###############################################################################
+# get list of samples to keep if samplefile supplied
+###############################################################################
+def parseSampleFile(samplefile):
+    # f = open(args.input, 'r', encoding = "ISO-8859-1")
+    f = open(samplefile, 'r', encoding = "utf-8")
+    reader = csv.DictReader(f, delimiter='\t')
+    keep_samples = []
+    for row in reader:
+        keep_samples.append(row['ID'])
+        
+    return keep_samples
+    
 ###############################################################################
 # get samples from VCF file
 ###############################################################################
 def getSamplesVCF(args, inputvcf):
+    
     if args.samplefile:
-        with open(args.samplefile) as f:
-            keep_samples = f.read().splitlines()
-
+        keep_samples = parseSampleFile(args.samplefile)
         vcf_reader = VCF(inputvcf,
             mode='rb', gts012=True, lazy=True, samples=keep_samples)
         # vcf_reader.set_samples(keep_samples) # <- set_samples() subsets VCF
@@ -207,9 +227,10 @@ def getSamplesVCF(args, inputvcf):
         vcf_reader = VCF(inputvcf,
             mode='rb', gts012=True, lazy=True)
 
-    if args.groupfile:
+    if (args.samplefile and args.groupvar):
         all_samples = vcf_reader.samples
-        samples = indexGroups(args.groupfile)
+        samples = indexGroups(args.samplefile, args.groupvar)
+        # samples = sorted(list(set(indexGroups(args.samplefile, args.groupvar).values())))
     else:
         samples = vcf_reader.samples
 
@@ -225,11 +246,7 @@ def processVCF(args, inputvcf, subtypes_dict, par):
 
     # initialize vcf reader
     if args.samplefile:
-        with open(args.samplefile) as f:
-            keep_samples = f.read().splitlines()
-        util_log.debug("VCF will be subset to " +
-            str(len(keep_samples)) + "samples in " +
-            args.samplefile)
+        keep_samples = parseSampleFile(args.samplefile)
 
         vcf_reader = VCF(inputvcf,
             mode='rb', gts012=True, lazy=True, samples=keep_samples)
@@ -241,9 +258,15 @@ def processVCF(args, inputvcf, subtypes_dict, par):
     nbp = (args.length-1)//2
 
     # index samples
-    if args.groupfile:
+    if (args.samplefile and args.groupvar):
         all_samples = vcf_reader.samples
-        samples = indexGroups(args.groupfile)
+        # util_log.debug(all_samples[0:10])
+
+        sg_dict = indexGroups(args.samplefile, args.groupvar)
+        samples = sorted(list(set(sg_dict.values())))
+        # util_log.debug()
+        util_log.debug(str(len(all_samples)) + " samples will be pooled into " +
+            str(len(samples)) + " groups: " +  ",".join(samples))
     else:
         samples = vcf_reader.samples
 
@@ -297,19 +320,30 @@ def processVCF(args, inputvcf, subtypes_dict, par):
                 if subtype in subtypes_dict:
                     st = subtypes_dict[subtype]
 
-                    if args.groupfile:
-                        sample = all_samples[record.gt_types.tolist().index(1)]
+                    # currently only works with singletons--
+                    if (args.samplefile and args.groupvar):
+                        tot = record.gt_types.sum()
+                        # util_log.debug(str(len(record.gt_types.tolist())))
+                        if tot > 0:
+                            carrier = all_samples[record.gt_types.tolist().index(1)]
+                            # sample = len(record.gt_types.tolist())
+                            # util_log.debug("Sample(s) carrying SNV: " + carrier)
+                        # else:
+                            # util_log.debug("SNV not found in any samples")
 
-                        if sample in sg_dict:
-                            sample_gp = sg_dict[sample]
-                            ind = samples.index(sample_gp)
-                            M[ind,st] += 1
+                            if carrier in sg_dict:
+                                sample_gp = sg_dict[carrier]
+                                ind = samples.index(sample_gp)
+                                M[ind,st] += 1
+                                numsites_keep += 1
+                        else:
+                            numsites_skip += 1
                     else:
                         gt_new = record.gt_types
                         gt_new[gt_new == 3] = 0
                         M[:,st] = M[:,st]+gt_new
 
-                    numsites_keep += 1
+                        numsites_keep += 1
 
                 else:
                     numsites_skip += 1
@@ -333,6 +367,68 @@ def processVCF(args, inputvcf, subtypes_dict, par):
         return M
     else:
         return out
+
+###############################################################################
+# process MAF files
+###############################################################################
+def processMAF(args, subtypes_dict):
+    
+    fasta_reader = Fasta(args.fastafile, read_ahead=1000000)
+    
+    nbp = (args.length-1)//2
+    samples_dict = {}
+
+    # M = np.zeros((len(samples), len(subtypes_dict)))
+    numsites_keep = 0
+    numsites_skip = 0
+    chrseq = '0'
+
+    f = open(args.input, 'r', encoding = "ISO-8859-1")
+
+    reader = csv.DictReader(filter(lambda row: row[0]!='#', f), delimiter='\t')
+    counter = 0
+    for row in reader:
+
+        if(row['Variant_Type'] == "SNP"):
+            
+            pos = int(row['Start_position'])
+            ref = row['Reference_Allele']
+            alt = row['Tumor_Seq_Allele2']
+            sample = row[args.groupvar]
+            
+            if row['Chromosome'] != chrseq:
+                sequence = fasta_reader[row['Chromosome']]
+                chrseq = row['Chromosome']
+            
+            counter += 1
+            mu_type = ref + alt
+            category = getCategory(mu_type)
+            if nbp > 0:
+                lseq = sequence[pos-(nbp+1):pos+nbp].seq
+            else:
+                lseq = sequence[pos-1].seq
+                # eprint("lseq:", lseq)
+            motif_a = getMotif(pos, lseq)
+            subtype = str(category + "." + motif_a)
+            st = subtypes_dict[subtype]
+
+            if sample not in samples_dict:
+                samples_dict[sample] = {}
+
+            if subtype not in samples_dict[sample]:
+                samples_dict[sample][subtype] = 1
+            else:
+                samples_dict[sample][subtype] += 1
+
+            if (counter%1000 == 0):
+                util_log.debug(args.input + ": " + 
+                    str(counter) + " sites counted")
+
+    M = DataFrame(samples_dict).T.fillna(0).values
+    samples = sorted(samples_dict)
+
+    out = collections.namedtuple('Out', ['M', 'samples'])(M, samples)
+    return out
 
 ###############################################################################
 # process tab-delimited text file, containing the following columns:
@@ -685,3 +781,21 @@ def filterTXT(inputtxt, keep_samples):
 
             if sample in keep_samples:
                 print("\t".join(row))
+
+def writeR(package, projectdir, matrixname):
+    rscript_path = projectdir + "/" + "Helmsman_to_" + package + ".R"
+    rscript = open(rscript_path, "w+")
+    print("library(\"" + package + "\")", file=rscript)
+    print("library(\"devtools\")", file=rscript)
+    print("install_github(\"carjed/musigtools\")", file=rscript)
+    print("library(\"musigtools\")", file=rscript)
+    print("mu_counts <- read.table(\"" + 
+        projectdir + "/" + 
+        matrixname + ".txt\", header=T, stringsAsFactors=F)", file=rscript)
+    print("msm <- format_counts(mu_counts, \"" + package + "\")", file=rscript)
+    print("message(\"The mutation spectra matrix generated by Helmsman is " + 
+        "now formatted for use with the " + package + " package, and loaded " + 
+        "in a data frame named 'msm'. Please refer to the " + package + 
+        " documentation for help with analyzing this matrix\")", 
+            file=rscript)
+
