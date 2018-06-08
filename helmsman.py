@@ -144,11 +144,11 @@ parser.add_argument("-X", "--maxac",
 parser.add_argument("-p", "--projectdir",
                     help="directory to store output files \
                         (do NOT include a trailing '/'). \
-                        Defaults to " + os.getcwd() + "/doomsayer_output",
+                        Defaults to " + os.getcwd() + "/helmsman_output",
                     nargs='?',
                     type=str,
                     metavar='/path/to/project_directory',
-                    default="doomsayer_output")
+                    default="helmsman_output")
 
 parser.add_argument("-m", "--matrixname",
                     help="filename prefix for M matrix [without extension]",
@@ -188,7 +188,7 @@ parser.add_argument("-d", "--decomp",
 parser.add_argument("-r", "--rank",
                     help="Rank for Matrix decomposition. \
                         If --decomp pca, will select first r components. \
-                        Default [0] will force Doomsayer to iterate through \
+                        Default [0] will force Helmsman to iterate through \
                         multiple ranks to find an optimal choice.",
                     nargs='?',
                     type=int,
@@ -332,7 +332,7 @@ if args.minsnvs > 0:
         M = M[np.sum(M, axis=1)>=args.minsnvs,]
         samples = np.array([highsnv_samples])
         lowsnv_path = projdir + \
-            "/doomsayer_snvs_lt" + str(args.minsnvs) + ".txt"
+            "/helmsman_snvs_lt" + str(args.minsnvs) + ".txt"
         lowsnv_fh = open(lowsnv_path, "w")
         for sample in lowsnv_samples:
             lowsnv_fh.write("%s\n" % sample)
