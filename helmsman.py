@@ -104,30 +104,24 @@ parser.add_argument("-f", "--fastafile",
                     metavar='/path/to/genome.fa',
                     default="chr20.fasta.gz")
 
-parser.add_argument("-D", "--idcol",
-                    help="if input is MAF file, specify grouping column.",
-                    nargs='?',
-                    metavar='STR',
-                    default='Tumor_Sample_Barcode',
-                    type=str)
-
-parser.add_argument("-g", "--groupfile",
-                    help="two-column tab-delimited file containing sample IDs \
-                        (column 1) and group membership (column 2) for pooled \
-                        analysis",
-                    nargs='?',
-                    metavar='/path/to/sample_batches.txt',
-                    type=str)
-
-#-----------------------------------------------------------------------------
-# Pre-filtering args
-#-----------------------------------------------------------------------------
 parser.add_argument("-s", "--samplefile",
                     help="file with sample IDs to include (one per line)",
                     nargs='?',
                     metavar='/path/to/kept_samples.txt',
                     type=str)
 
+parser.add_argument("-g", "--groupvar",
+                    help="if --samplefile is provided with VCF input, or if \
+                        input is MAF file, specify column name of the \
+                        grouping variable to pool samples by. If left blank, \
+                        matrix will be constructed per sample/tumor ID as usual",
+                    nargs='?',
+                    type=str,
+                    metavar='STR')  
+
+#-----------------------------------------------------------------------------
+# Pre-filtering args
+#-----------------------------------------------------------------------------
 parser.add_argument("-C", "--minsnvs",
                     help="minimum # of SNVs per individual to be included \
                         in analysis. Default is 0.",
@@ -220,7 +214,7 @@ else:
     warnings.filterwarnings("ignore", category=UserWarning)    
 
 util_log.setLevel(loglev)
-log = getLogger('doomsayer', level=loglev)
+log = getLogger("helmsman", level=loglev)
 
 log.info("----------------------------------")
 try:
@@ -230,6 +224,9 @@ except:
     version = "[version not found]"
     log.warning(version)
 log.info("----------------------------------")
+
+if (args.mode == "maf" and not args.groupvar):
+    args.groupvar = "Tumor_Sample_Barcode"
 
 log.debug("Running with the following options:")
 for arg in vars(args):
