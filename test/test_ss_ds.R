@@ -120,13 +120,27 @@ time.taken <- end.time - start.time
 time.taken
 
 #-----------------------------------------------------------------------------
+# MutationalPatterns
+#-----------------------------------------------------------------------------
+# require(MutationalPatterns)
+# start.time <- Sys.time()
+# 
+# mem_change(vcfs <- read_vcfs_as_granges(c(chr22.vcf), genome = bsgenome))
+# vcf <- readVcfAsVRanges(chr22.vcf)
+# mem_change(mut_mat <- mut_matrix(vcf_list = c(vcf), ref_genome = bsgenome))
+# 
+# end.time <- Sys.time()
+# time.taken <- end.time - start.time
+# time.taken
+
+#-----------------------------------------------------------------------------
 # maftools
 #-----------------------------------------------------------------------------
 require(maftools)
 start.time <- Sys.time()
 
-mem_change(laml <- read.maf(maf = lihc.maf, removeSilent = FALSE, useAll = TRUE))
-mem_change(laml.tnm <- trinucleotideMatrix(maf = laml, ref_genome = ref.fasta, useSyn = TRUE))
+mem_change(lihc <- read.maf(maf = lihc.maf, removeSilent = FALSE, useAll = TRUE))
+mem_change(lihc.tnm <- trinucleotideMatrix(maf = lihc, ref_genome = ref.fasta, useSyn = TRUE))
 
 end.time <- Sys.time()
 time.taken <- end.time - start.time
