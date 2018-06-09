@@ -1,6 +1,5 @@
 language: python
 python:
-  # We don't actually use the Travis Python, but this keeps it organized.
   # - "2.7"
   - "3.5"
   - "3.6"
@@ -20,12 +19,8 @@ install:
   - conda update -q conda
   # Useful for debugging any issues with conda
   - conda info -a
-
-  # Replace dep1 dep2 ... with your dependencies
   - conda env create -q -n test-environment python=$TRAVIS_PYTHON_VERSION -f env.yml
   - source activate test-environment
-  # - python setup.py install
-  # - R --quiet -f install.r
 
 script:
-  - python helmsman.py --mode agg --input tutorial_data/NMF_M_spectra.txt --verbose --rank 4
+  - python helmsman.py --mode agg --input tutorial_data/NMF_M_spectra.txt --rank 4 --package SomaticSignatures --verbose
