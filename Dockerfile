@@ -1,6 +1,6 @@
 ###############################################################################
-# Modified from https://github.com/jupyter/docker-stacks/blob/master/base-notebook/Dockerfile
-# Distributed under the terms of the Modified BSD License.
+# Modified from 
+# https://github.com/jupyter/docker-stacks/blob/master/base-notebook/Dockerfile
 ###############################################################################
 FROM jupyter/scipy-notebook:c7fb6660d096
 
@@ -34,8 +34,3 @@ USER ${NB_USER}
 ###############################################################################
 RUN conda env update -n root -f env.yml && \
 conda clean -tipsy
-
-###############################################################################
-# Install R packages
-###############################################################################
-# RUN if [ -f install.r ]; then R --quiet -f install.r; fi
