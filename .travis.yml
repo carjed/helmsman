@@ -23,4 +23,5 @@ install:
   - source activate test-environment
 
 script:
-  - python helmsman.py --mode agg --input tutorial_data/NMF_M_spectra.txt --rank 4 --package SomaticSignatures --verbose
+  - python helmsman.py --mode vcf --input data/chr22.16050075-16992642.1kg.phase3.vcf.gz --fastafile data/chr22.fasta.gz --decomp nmf --rank 4 --package deconstructSigs --verbose
+  - python helmsman.py --mode agg --input data/gsc_LIHC.subtype_count_matrix.txt --decomp pca --rank 4 --package SomaticSignatures --verbose
