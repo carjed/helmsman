@@ -508,11 +508,8 @@ def aggregateM(inputM, subtypes_dict):
     M_colnames = colnames + list(sorted(subtypes_dict.keys()))
     colrange = range(1,len(M_colnames))
 
-    if inputM.lower().endswith('nmf_m_spectra.txt'):
-        samples = getSamples(inputM)
-        M = np.loadtxt(inputM, skiprows=1, usecols=colrange)
-        M = M.astype(np.float)
-    else:
+    if (inputM.lower().endswith('m_samples.txt') or 
+            inputM.lower().endswith('m_regions.txt')):
         with open(inputM) as f:
             file_list = f.read().splitlines()
 
@@ -542,6 +539,11 @@ def aggregateM(inputM, subtypes_dict):
                 M_out = np.add(M_out, M_it)
 
             M = M_out.astype(np.float)
+
+    else:
+        samples = getSamples(inputM)
+        M = np.loadtxt(inputM, skiprows=1, usecols=colrange)
+        M = M.astype(np.float)
 
     out = collections.namedtuple('Out', ['M', 'samples'])(M, samples)
     return out
