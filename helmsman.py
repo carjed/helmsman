@@ -49,7 +49,7 @@ parser.add_argument("-c", "--cpus",
                     default=1)
 
 parser.add_argument("-S", "--seed",
-                    help="random seed for NMF and outlier detection",
+                    help="random seed for NMF decomposition",
                     nargs='?',
                     type=int,
                     metavar='INT',

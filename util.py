@@ -23,7 +23,6 @@ sys.path.append(os.getcwd())
 # matrix+stats processing
 from pandas import *
 import numpy as np
-from scipy.stats import chisquare
 
 # decomposition algorithms
 import nimfa
@@ -192,13 +191,7 @@ def indexGroups(samplefile, groupvar):
     for row in reader:
         sg_dict[row['ID']] = row[groupvar]
     
-    # with open(groupfile) as sg_file:
-    #     for line in sg_file:
-    #       (key, val) = line.split()
-    #       sg_dict[key] = val
     return sg_dict
-    # samples = sorted(list(set(sg_dict.values())))
-    # return samples
 
 ###############################################################################
 # get list of samples to keep if samplefile supplied
@@ -222,7 +215,6 @@ def getSamplesVCF(args, inputvcf):
         keep_samples = parseSampleFile(args.samplefile)
         vcf_reader = VCF(inputvcf,
             mode='rb', gts012=True, lazy=True, samples=keep_samples)
-        # vcf_reader.set_samples(keep_samples) # <- set_samples() subsets VCF
     else:
         vcf_reader = VCF(inputvcf,
             mode='rb', gts012=True, lazy=True)
@@ -230,7 +222,6 @@ def getSamplesVCF(args, inputvcf):
     if (args.samplefile and args.groupvar):
         all_samples = vcf_reader.samples
         samples = indexGroups(args.samplefile, args.groupvar)
-        # samples = sorted(list(set(indexGroups(args.samplefile, args.groupvar).values())))
     else:
         samples = vcf_reader.samples
 
@@ -250,7 +241,6 @@ def processVCF(args, inputvcf, subtypes_dict, par):
 
         vcf_reader = VCF(inputvcf,
             mode='rb', gts012=True, lazy=True, samples=keep_samples)
-        # vcf_reader.set_samples(keep_samples) # <- set_samples() subsets VCF
     else:
         vcf_reader = VCF(inputvcf,
             mode='rb', gts012=True, lazy=True)
@@ -352,7 +342,7 @@ def processVCF(args, inputvcf, subtypes_dict, par):
 ###############################################################################
 def processMAF(args, subtypes_dict):
     
-    fasta_reader = Fasta(args.fastafile, read_ahead=100000)
+    fasta_reader = Fasta(args.fastafile, read_ahead=1000000)
     
     nbp = (args.length-1)//2
     samples_dict = {}
@@ -411,12 +401,11 @@ def processMAF(args, subtypes_dict):
 ###############################################################################
 def processTxt(args, subtypes_dict):
 
-    fasta_reader = Fasta(args.fastafile, read_ahead=100000)
+    fasta_reader = Fasta(args.fastafile, read_ahead=1000000)
 
     nbp = (args.length-1)//2
     samples_dict = {}
 
-    # M = np.zeros((len(samples), len(subtypes_dict)))
     numsites_keep = 0
     numsites_skip = 0
     chrseq = '0'
@@ -656,109 +645,8 @@ def writeH(H, H_path, subtypes_dict):
     H_out.to_csv(H_path, index_label="Sig", sep="\t")
 
 ###############################################################################
-# Generate keep/drop lists
+# auto-generate R script
 ###############################################################################
-class DetectOutliers:
-    def __init__(self, M, samples, filtermode, threshold, projdir, seed):
-
-        # outlier detection
-        clf = LocalOutlierFactor(
-            n_neighbors=20, 
-            contamination=threshold)
-        y_pred = clf.fit_predict(M)
-        
-        cee = EllipticEnvelope(
-            contamination=threshold,
-            random_state=seed)
-        cee.fit(M)
-        scores_pred = cee.decision_function(M)
-        y_pred2 = cee.predict(M)
-        
-        cif = IsolationForest(
-            contamination=threshold,
-            random_state=seed)
-        cif.fit(M)
-        scores_pred = cif.decision_function(M)
-        y_pred3 = cif.predict(M)
-        
-        outlier_methods = ["lof", "ee", "if"]
-        ol_df = DataFrame(np.column_stack((y_pred, y_pred2, y_pred3)),
-                   index=samples[0].tolist(),
-                   columns=outlier_methods)
-    
-        keep_samples, drop_samples, drop_indices = ([] for i in range(3))
-    
-        omnibus_methods = ["any", "any2", "all"]
-        if filtermode in omnibus_methods:
-            dft = ol_df.sum(axis=1)
-            dft = DataFrame(dft)
-            if filtermode == "any":
-                drop_samples = dft[dft[0] != 3].index.values.tolist()
-                keep_samples = dft[dft[0] == 3].index.values.tolist()
-            elif filtermode == "any2":
-                drop_samples = dft[dft[0] <= -1].index.values.tolist()
-                keep_samples = dft[dft[0] > -1].index.values.tolist()
-            elif filtermode == "all":
-                drop_samples = dft[dft[0] == -3].index.values.tolist()
-                keep_samples = dft[dft[0] != -3].index.values.tolist()
-            
-        elif filtermode in outlier_methods:
-            drop_samples = ol_df[ol_df[filtermode] == -1].index.values.tolist()
-            keep_samples = ol_df[ol_df[filtermode] == 1].index.values.tolist()
-            
-        drop_bool = np.isin(samples[0], drop_samples)
-        drop_indices = np.where(drop_bool)[0].tolist()
-        
-        self.keep = keep_samples
-        self.drop = drop_samples
-        self.drop_indices = drop_indices
-
-###############################################################################
-# write yaml config for diagnostic reports
-###############################################################################
-def writeReportConfig(paths, projdir, args):
-    yaml_path = projdir + "/config.yaml"
-    yaml = open(yaml_path, "w+")
-    print("# Config file for doomsayer_diagnostics.r", file=yaml)
-    
-    for key in paths.keys():
-        print(key + ": " + paths[key], file=yaml)
-
-    print("staticplots: " + str(args.staticplots).lower(), file=yaml)
-
-###############################################################################
-# filter VCF input by kept samples
-###############################################################################
-def filterVCF(inputvcf, keep_samples):
-    vcf = VCF(inputvcf, samples=keep_samples, mode='rb')
-
-    print(vcf.raw_header.rstrip())
-    for v in vcf:
-        v.INFO['AC'] = str(v.num_het + v.num_hom_alt*2)
-
-        if int(v.INFO['AC']) > 0:
-            v.INFO['NS'] = str(v.num_called)
-            v.INFO['AN'] = str(2*v.num_called)
-            v.INFO['DP'] = str(np.sum(v.format('DP')))
-            print(str(v).rstrip())
-
-###############################################################################
-# filter txt input by kept samples
-###############################################################################
-def filterTXT(inputtxt, keep_samples):
-    with open(inputtxt, 'r') as f:
-        reader = csv.reader(f, delimiter='\t')
-
-        for row in reader:
-            chrom = row[0]
-            pos = row[1]
-            ref = row[2]
-            alt = row[3]
-            sample = row[4]
-
-            if sample in keep_samples:
-                print("\t".join(row))
-
 def writeR(package, projectdir, matrixname):
     rscript_path = projectdir + "/" + "Helmsman_to_" + package + ".R"
     rscript = open(rscript_path, "w+")
