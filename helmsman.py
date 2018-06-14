@@ -177,12 +177,11 @@ decomp_opts = ["nmf", "pca"]
 parser.add_argument("-d", "--decomp", 
                     help="mode for matrix decomposition. Must be one of \
                         {"+", ".join(decomp_opts)+"}. \
-                        Defaults to pca.",
+                        Defaults to 'none'.",
                     nargs='?',
                     type=str,
                     choices=decomp_opts,
-                    metavar='STR',
-                    default="pca")
+                    metavar='STR')
 
 # rank_opts = range(2,11)
 # ro_str = str(min(rank_opts)) + " and " + str(max(rank_opts))
@@ -362,19 +361,23 @@ log.debug("M_f matrix (mutation spectra) saved to: " + paths['M_path_rates'])
 # Get matrix decomposition
 ###############################################################################
 
-decomp_data = DecompModel(M_f, args.rank, args.seed, args.decomp)
-M_d = decomp_data.W
+if args.decomp is not None:
+    decomp_data = DecompModel(M_f, args.rank, args.seed, args.decomp)
+    M_d = decomp_data.W
+    
+    # W matrix (contributions)
+    paths['W_path'] = projdir + "/W_components.txt"
+    writeW(decomp_data.W, paths['W_path'], samples)
+    log.debug("W matrix saved to: " + paths['W_path'])
+    
+    # H matrix (loadings)
+    paths['H_path'] = projdir + "/H_loadings.txt"
+    writeH(decomp_data.H, paths['H_path'], subtypes_dict)
+    log.debug("H matrix saved to: " + paths['H_path'])
 
-# W matrix (contributions)
-paths['W_path'] = projdir + "/W_components.txt"
-writeW(decomp_data.W, paths['W_path'], samples)
-log.debug("W matrix saved to: " + paths['W_path'])
-
-# H matrix (loadings)
-paths['H_path'] = projdir + "/H_loadings.txt"
-writeH(decomp_data.H, paths['H_path'], subtypes_dict)
-log.debug("H matrix saved to: " + paths['H_path'])
-
+###############################################################################
+# auto-generate R script to pass data to MSA packages
+###############################################################################
 if args.package:
     writeR(args.package, args.projectdir, args.matrixname)
     log.info("To use this mutation spectra matrix with the " + args.package + 

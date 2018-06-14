@@ -106,19 +106,19 @@ util_log = getLogger(__name__, level="DEBUG")
 # collapse mutation types per strand symmetry
 ###############################################################################
 def getCategory(mu_type):
-    if re.match("^[ACGT]*$", mu_type):
-        if (mu_type == "AC" or mu_type == "TG"):
-            category = "T_G"
-        if (mu_type == "AG" or mu_type == "TC"):
-            category = "T_C"
-        if (mu_type == "AT" or mu_type == "TA"):
-            category = "T_A"
-        if (mu_type == "CA" or mu_type == "GT"):
-            category = "C_A"
-        if (mu_type == "CG" or mu_type == "GC"):
-            category = "C_G"
-        if (mu_type == "CT" or mu_type == "GA"):
-            category = "C_T"
+    # if re.match("^[ACGT]*$", mu_type):
+    if (mu_type == "AC" or mu_type == "TG"):
+        category = "T_G"
+    elif (mu_type == "AG" or mu_type == "TC"):
+        category = "T_C"
+    elif (mu_type == "AT" or mu_type == "TA"):
+        category = "T_A"
+    elif (mu_type == "CA" or mu_type == "GT"):
+        category = "C_A"
+    elif (mu_type == "CG" or mu_type == "GC"):
+        category = "C_G"
+    elif (mu_type == "CT" or mu_type == "GA"):
+        category = "C_T"
     else:
         category = "unknown"
     return category
@@ -260,11 +260,10 @@ def processVCF(args, inputvcf, subtypes_dict, par):
     # index samples
     if (args.samplefile and args.groupvar):
         all_samples = vcf_reader.samples
-        # util_log.debug(all_samples[0:10])
 
         sg_dict = indexGroups(args.samplefile, args.groupvar)
         samples = sorted(list(set(sg_dict.values())))
-        # util_log.debug()
+
         util_log.debug(str(len(all_samples)) + " samples will be pooled into " +
             str(len(samples)) + " groups: " +  ",".join(samples))
     else:
@@ -280,86 +279,66 @@ def processVCF(args, inputvcf, subtypes_dict, par):
     numsites_skip = 0
     chrseq = '0'
 
-    batchit = 0
-    sample_batch = []
-    subtype_batch = []
-
     for record in vcf_reader:
-        # debug--testing performance for triallelic sites
-        # if(record.POS==91628): # triallelic site
-        # if(record.POS==63549):
-        #     eprint(acval)
-        #     eprint(record.gt_types.tolist().index(1))
 
-        # Filter by allele count, SNP status, and FILTER column
-        # if len(record.ALT[0])==1:
-        if record.is_snp and len(record.ALT)==1:
-            # eprint("SNP check: PASS")
-            acval = record.INFO['AC']
-#             eprint(record.POS, acval)
+        # Filter by allele count
+        if (record.INFO['AC'] > args.maxac > 0):
+            numsites_skip += 1
+            continue
+        
+        # Filter by SNP status, # alt alleles, and FILTER column
+        if (not record.is_snp or 
+            len(record.ALT) != 1 or 
+            record.FILTER is not None):
+            numsites_skip += 1
+            continue
 
-            if ((acval<=args.maxac or args.maxac==0) and record.FILTER is None):
-                # eprint(record.CHROM, record.POS, record.REF, record.ALT[0],
-                    # acval, record.FILTER)
+        # check and update chromosome sequence
+        if record.CHROM != chrseq:
+            sequence = fasta_reader[record.CHROM]
+            chrseq = record.CHROM
 
-                # check and update chromosome sequence
-                if record.CHROM != chrseq:
-                    sequence = fasta_reader[record.CHROM]
-                    chrseq = record.CHROM
+        lseq = sequence[record.POS-(nbp+1):record.POS+nbp].seq
 
-                if nbp > 0:
-                    lseq = sequence[record.POS-(nbp+1):record.POS+nbp].seq
-                else:
-                    lseq = sequence[record.POS-1].seq
+        mu_type = record.REF + str(record.ALT[0])
+        category = getCategory(mu_type)
+        motif_a = getMotif(record.POS, lseq)
+        subtype = str(category + "." + motif_a)
 
-                mu_type = record.REF + str(record.ALT[0])
-                category = getCategory(mu_type)
-                motif_a = getMotif(record.POS, lseq)
-                subtype = str(category + "." + motif_a)
+        if subtype not in subtypes_dict:
+            numsites_skip += 1
+            continue
+        
+        st = subtypes_dict[subtype]
 
-                if subtype in subtypes_dict:
-                    st = subtypes_dict[subtype]
+        # currently only works with singletons--
+        if (args.samplefile and args.groupvar):
 
-                    # currently only works with singletons--
-                    if (args.samplefile and args.groupvar):
-                        tot = record.gt_types.sum()
-                        # util_log.debug(str(len(record.gt_types.tolist())))
-                        if tot > 0:
-                            carrier = all_samples[record.gt_types.tolist().index(1)]
-                            # sample = len(record.gt_types.tolist())
-                            # util_log.debug("Sample(s) carrying SNV: " + carrier)
-                        # else:
-                            # util_log.debug("SNV not found in any samples")
-
-                            if carrier in sg_dict:
-                                sample_gp = sg_dict[carrier]
-                                ind = samples.index(sample_gp)
-                                M[ind,st] += 1
-                                numsites_keep += 1
-                        else:
-                            numsites_skip += 1
-                    else:
-                        gt_new = record.gt_types
-                        gt_new[gt_new == 3] = 0
-                        M[:,st] = M[:,st]+gt_new
-
-                        numsites_keep += 1
-
-                else:
-                    numsites_skip += 1
-
-                if (numsites_keep%1000000 == 0):
-                    util_log.debug(inputvcf + ": " + 
-                        str(numsites_keep) + " sites counted")
-                    # util_log.debug(str(numsites_skip) + " sites skipped")
-
-            else:
+            if record.gt_types.sum() == 0:
                 numsites_skip += 1
+                continue
+            
+            carrier = all_samples[record.gt_types.tolist().index(1)]
+            if carrier not in sg_dict:
+                numsites_skip += 1
+                continue
+            
+            sample_gp = sg_dict[carrier]
+            ind = samples.index(sample_gp)
+            M[ind,st] += 1
+            numsites_keep += 1
 
-    util_log.info(inputvcf + ": " + 
-        str(numsites_keep) + " sites counted")
-    util_log.info(inputvcf + ": " + 
-        str(numsites_skip) + " sites skipped")
+        else:
+            gt_new = record.gt_types
+            gt_new[gt_new == 3] = 0
+            M[:,st] = M[:,st]+gt_new
+            numsites_keep += 1
+
+        if (numsites_keep%1000000 != 0): continue
+        util_log.debug(inputvcf + ": " + str(numsites_keep) + " sites counted")
+
+    util_log.info(inputvcf + ": " + str(numsites_keep) + " sites counted")
+    util_log.info(inputvcf + ": " + str(numsites_skip) + " sites skipped")
 
     out = collections.namedtuple('Out', ['M', 'samples'])(M, samples)
 
@@ -373,7 +352,7 @@ def processVCF(args, inputvcf, subtypes_dict, par):
 ###############################################################################
 def processMAF(args, subtypes_dict):
     
-    fasta_reader = Fasta(args.fastafile, read_ahead=1000000)
+    fasta_reader = Fasta(args.fastafile, read_ahead=100000)
     
     nbp = (args.length-1)//2
     samples_dict = {}
@@ -389,40 +368,36 @@ def processMAF(args, subtypes_dict):
     counter = 0
     for row in reader:
 
-        if(row['Variant_Type'] == "SNP"):
+        if(row['Variant_Type'] != "SNP"): continue
             
-            pos = int(row['Start_position'])
-            ref = row['Reference_Allele']
-            alt = row['Tumor_Seq_Allele2']
-            sample = row[args.groupvar]
-            
-            if row['Chromosome'] != chrseq:
-                sequence = fasta_reader[row['Chromosome']]
-                chrseq = row['Chromosome']
-            
-            counter += 1
-            mu_type = ref + alt
-            category = getCategory(mu_type)
-            if nbp > 0:
-                lseq = sequence[pos-(nbp+1):pos+nbp].seq
-            else:
-                lseq = sequence[pos-1].seq
-                # eprint("lseq:", lseq)
-            motif_a = getMotif(pos, lseq)
-            subtype = str(category + "." + motif_a)
-            st = subtypes_dict[subtype]
+        pos = int(row['Start_position'])
+        ref = row['Reference_Allele']
+        alt = row['Tumor_Seq_Allele2']
+        sample = row[args.groupvar]
+        
+        if row['Chromosome'] != chrseq:
+            sequence = fasta_reader[row['Chromosome']]
+            chrseq = row['Chromosome']
+        
+        counter += 1
+        mu_type = ref + alt
+        category = getCategory(mu_type)
+        lseq = sequence[pos-(nbp+1):pos+nbp].seq
+        
+        motif_a = getMotif(pos, lseq)
+        subtype = str(category + "." + motif_a)
+        st = subtypes_dict[subtype]
 
-            if sample not in samples_dict:
-                samples_dict[sample] = {}
+        if sample not in samples_dict:
+            samples_dict[sample] = {}
 
-            if subtype not in samples_dict[sample]:
-                samples_dict[sample][subtype] = 1
-            else:
-                samples_dict[sample][subtype] += 1
+        if subtype not in samples_dict[sample]:
+            samples_dict[sample][subtype] = 1
+        else:
+            samples_dict[sample][subtype] += 1
 
-            if (counter%1000 == 0):
-                util_log.debug(args.input + ": " + 
-                    str(counter) + " sites counted")
+        if (counter%1000 != 0): continue
+        util_log.debug(args.input + ": " + str(counter) + " sites counted")
 
     M = DataFrame(samples_dict).T.fillna(0).values
     samples = sorted(samples_dict)
@@ -436,7 +411,7 @@ def processMAF(args, subtypes_dict):
 ###############################################################################
 def processTxt(args, subtypes_dict):
 
-    fasta_reader = Fasta(args.fastafile, read_ahead=1000000)
+    fasta_reader = Fasta(args.fastafile, read_ahead=100000)
 
     nbp = (args.length-1)//2
     samples_dict = {}
