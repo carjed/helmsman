@@ -1,7 +1,6 @@
-devtools::install_github("johannesbjork/LaCroixColoR")
-library(LaCroixColoR)
-lacroix_palette("PeachPear", type = "discrete")
-
+#-----------------------------------------------------------------------------
+# Plot performance of VCF-specific programs evaluated in main paper
+#-----------------------------------------------------------------------------
 progs <- c("Helmsman", "SomaticSignatures", "deconstructSigs", "signeR")
 
 performance_df <- data.frame(
@@ -35,7 +34,9 @@ ggplot(performance_df, aes(x=program, y=vals, fill=program))+
         axis.title.x=element_blank())
 ggsave("helmsman/assets/fig1_v3.png", width=12, height=4)
 
-
+#-----------------------------------------------------------------------------
+# Plot performance of MAF-specific programs evaluated in supplement
+#-----------------------------------------------------------------------------
 progs_supp <- c("Helmsman", "maftools", "Mutation-Signatures")
 
 performance_df_supp <- data.frame(
