@@ -55,6 +55,32 @@ cd doomsayer
 pip install -r pip_reqs.txt
 ```
 
+## Docker
+
+For more flexible deployment options, Helmsman is available as a Docker container. The following command will pull and run the preconfigured image from the [Docker Hub](https://hub.docker.com/):
+
+```
+docker run -d --name helmsman \
+  -v /path/to/local/data:/data \ # map directory containing input data
+  -p 8888:8888 \ # expose jupyter notebook on port 8888
+  start-notebook.sh --NotebookApp.token='' \ # start with token disabled
+  carjed/helmsman
+```
+
+You may also clone this repository and build the dockerfile locally, using the following commands:
+
+```{sh}
+git clone https://github.com/carjed/helmsman.git
+cd helmsman
+
+docker build -t latest --force-rm .
+
+docker run -d --name helmsman \
+  -p 8888:8888 \
+  start-notebook.sh --NotebookApp.token='' \
+  helmsman
+```
+
 # Quick Start
 
 Suppose we have a Variant Call format (VCF) file named `input.vcf`, containing the genotypes of N individuals at each somatic mutation identified. You will also need the corresponding reference genome. With the following command, With the following command, *Helmsman* will parse the VCF file and write a file under `/path/to/output/` containing the Nx96 mutation spectra matrix:
