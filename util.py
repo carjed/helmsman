@@ -271,15 +271,15 @@ def processVCF(args, inputvcf, subtypes_dict, par):
 
     for record in vcf_reader:
 
-        # Filter by allele count
-        if (record.INFO['AC'] > args.maxac > 0):
-            numsites_skip += 1
-            continue
-        
         # Filter by SNP status, # alt alleles, and FILTER column
         if (not record.is_snp or 
             len(record.ALT) != 1 or 
             record.FILTER is not None):
+            numsites_skip += 1
+            continue
+
+        # Filter by allele count
+        if (record.INFO['AC'] > args.maxac > 0):
             numsites_skip += 1
             continue
 
