@@ -320,9 +320,9 @@ def processVCF(args, inputvcf, subtypes_dict, par):
 
         else:
             gt_new = record.gt_types
-            if args.impute:
+            if (args.impute and 3 in gt_new):
                 gt_complete = gt_new[gt_new!=3]
-                freq = sum(gt_complete)/(2*len(gt_complete))
+                freq = sum(gt_complete)/len(gt_complete)
                 gt_new[gt_new == 3] = freq
             else:
                 gt_new[gt_new == 3] = 0
