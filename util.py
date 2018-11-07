@@ -363,9 +363,12 @@ def processMAF(args, subtypes_dict):
     counter = 0
     for row in reader:
 
-        if(row['Variant_Type'] != "SNP"): continue
-            
-        pos = int(row['Start_position'])
+        if(row['Variant_Type'] not in ["SNP", "SNV"]): continue
+        
+        if 'Start_Position' in row:    
+            pos = int(row['Start_Position'])
+        else:
+            pos = int(row['Start_position'])
         ref = row['Reference_Allele']
         alt = row['Tumor_Seq_Allele2']
         sample = row[args.groupvar]
