@@ -268,6 +268,7 @@ def processVCF(args, inputvcf, subtypes_dict, par):
     numsites_keep = 0
     numsites_skip = 0
     chrseq = '0'
+    chr_check = "none"
 
     for record in vcf_reader:
 
@@ -283,10 +284,32 @@ def processVCF(args, inputvcf, subtypes_dict, par):
             numsites_skip += 1
             continue
 
+        row_chr = record.CHROM
+
+        # check chromosome formatting matches between MAF and fasta files
+        if numsites_keep == 0:
+            if "chr1" in fasta_reader and "chr" not in row_chr:
+                chr_check = "add"
+                util_log.debug("formatting mismatch: 'chr' only in fasta file")
+            elif "chr1" not in fasta_reader and "chr" in row_chr:
+                chr_check = "delete"
+                util_log.debug("formatting mismatch: 'chr' only in MAF file")
+            else:
+                util_log.debug("chromosome formatting matches")
+        
+        if chr_check == "add":
+            row_chr = "chr" + row_chr
+        elif chr_check == "delete":
+            row_chr = row_chr.replace('chr', '')
+                
+        if row_chr != chrseq:
+            sequence = fasta_reader[row_chr]
+            chrseq = row_chr
+
         # check and update chromosome sequence
-        if record.CHROM != chrseq:
-            sequence = fasta_reader[record.CHROM]
-            chrseq = record.CHROM
+        # if record.CHROM != chrseq:
+        #     sequence = fasta_reader[record.CHROM]
+        #     chrseq = record.CHROM
 
         lseq = sequence[record.POS-(nbp+1):record.POS+nbp].seq
 
@@ -320,7 +343,12 @@ def processVCF(args, inputvcf, subtypes_dict, par):
 
         else:
             gt_new = record.gt_types
-            gt_new[gt_new == 3] = 0
+            if (args.impute and 3 in gt_new):
+                gt_complete = gt_new[gt_new!=3]
+                freq = sum(gt_complete)/len(gt_complete)
+                gt_new[gt_new == 3] = freq
+            else:
+                gt_new[gt_new == 3] = 0
             M[:,st] = M[:,st]+gt_new
             numsites_keep += 1
 
@@ -356,18 +384,43 @@ def processMAF(args, subtypes_dict):
 
     reader = csv.DictReader(filter(lambda row: row[0]!='#', f), delimiter='\t')
     counter = 0
+    chr_check = "none"
     for row in reader:
 
-        if(row['Variant_Type'] != "SNP"): continue
-            
-        pos = int(row['Start_position'])
+        if(row['Variant_Type'] not in ["SNP", "SNV"]): continue
+        
+        if 'Start_Position' in row:    
+            pos = int(row['Start_Position'])
+        else:
+            pos = int(row['Start_position'])
         ref = row['Reference_Allele']
         alt = row['Tumor_Seq_Allele2']
+        row_chr = row['Chromosome']
         sample = row[args.groupvar]
         
-        if row['Chromosome'] != chrseq:
-            sequence = fasta_reader[row['Chromosome']]
-            chrseq = row['Chromosome']
+        # check chromosome formatting matches between MAF and fasta files
+        if counter == 0:
+            if "chr1" in fasta_reader and "chr" not in row_chr:
+                chr_check = "add"
+                util_log.debug("formatting mismatch: 'chr' only in fasta file")
+            elif "chr1" not in fasta_reader and "chr" in row_chr:
+                chr_check = "delete"
+                util_log.debug("formatting mismatch: 'chr' only in MAF file")
+            else:
+                util_log.debug("chromosome formatting matches")
+        
+        if chr_check == "add":
+            row_chr = "chr" + row_chr
+        elif chr_check == "delete":
+            row_chr = row_chr.replace('chr', '')
+                
+        if row_chr != chrseq:
+            sequence = fasta_reader[row_chr]
+            chrseq = row_chr
+            
+        # if row['Chromosome'] != chrseq:
+        #     sequence = fasta_reader[row['Chromosome']]
+        #     chrseq = row['Chromosome']
         
         counter += 1
         mu_type = ref + alt
