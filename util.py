@@ -379,8 +379,12 @@ def processMAF(args, subtypes_dict):
         if counter == 0:
             if "chr1" in fasta_reader and "chr" not in row_chr:
                 chr_check = "add"
+                util_log.debug("formatting mismatch: 'chr' only in fasta file")
             elif "chr1" not in fasta_reader and "chr" in row_chr:
                 chr_check = "delete"
+                util_log.debug("formatting mismatch: 'chr' only in MAF file")
+            else:
+                util_log.debug("chromosome formatting matches")
         
         if chr_check == "add":
             row_chr = "chr" + row_chr
