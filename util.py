@@ -361,6 +361,7 @@ def processMAF(args, subtypes_dict):
 
     reader = csv.DictReader(filter(lambda row: row[0]!='#', f), delimiter='\t')
     counter = 0
+    chr_check = "none"
     for row in reader:
 
         if(row['Variant_Type'] not in ["SNP", "SNV"]): continue
@@ -371,11 +372,28 @@ def processMAF(args, subtypes_dict):
             pos = int(row['Start_position'])
         ref = row['Reference_Allele']
         alt = row['Tumor_Seq_Allele2']
+        row_chr = row['Chromosome']
         sample = row[args.groupvar]
         
-        if row['Chromosome'] != chrseq:
-            sequence = fasta_reader[row['Chromosome']]
-            chrseq = row['Chromosome']
+        # check chromosome formatting matches between MAF and fasta files
+        if counter == 0:
+            if "chr1" in fasta_reader and "chr" not in row_chr:
+                chr_check = "add"
+            elif "chr1" not in fasta_reader and "chr" in row_chr:
+                chr_check = "delete"
+        
+        if chr_check == "add":
+            row_chr = "chr" + row_chr
+        elif chr_check == "delete":
+            row_chr = row_chr.replace('chr', '')
+                
+        if row_chr != chrseq:
+            sequence = fasta_reader[row_chr]
+            chrseq = row_chr
+            
+        # if row['Chromosome'] != chrseq:
+        #     sequence = fasta_reader[row['Chromosome']]
+        #     chrseq = row['Chromosome']
         
         counter += 1
         mu_type = ref + alt
