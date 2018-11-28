@@ -46,14 +46,19 @@ source activate helmsman
 
 ## Using pip
 
-If you do not have Conda on your system, the prerequisites for Helmsman can also be installed using `pip`:
+If you do not have Conda on your system, the prerequisites for Helmsman can also be installed with `pip` inside of a python3 virtual environment (assuming you have [`virtualenv`](https://virtualenv.pypa.io/en/latest/) installed):
 
 ```{sh}
 git clone https://github.com/carjed/helmsman.git
 cd helmsman
 
+virtualenv -p python3 helmsman_env
+source helmsman_env/bin/activate
+
 pip install -r pip_reqs.txt
 ```
+
+It is also possible to forgo the virtual environment setup and use `pip` to install the necessary dependencies in your global `site-packages` directory, but this is not recommended as doing so may cause dependency conflicts between Helmsman and other programs/packages.
 
 ## Docker
 
