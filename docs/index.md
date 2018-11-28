@@ -49,8 +49,8 @@ source activate helmsman
 If you do not have Conda on your system, the prerequisites for *Helmsman* can also be installed using `pip`:
 
 ```{sh}
-git clone https://github.com/carjed/doomsayer.git
-cd doomsayer
+git clone https://github.com/carjed/helmsman.git
+cd helmsman
 
 pip install -r pip_reqs.txt
 ```
