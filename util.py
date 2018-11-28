@@ -349,6 +349,11 @@ def processVCF(args, inputvcf, subtypes_dict, par):
                 gt_new[gt_new == 3] = freq
             else:
                 gt_new[gt_new == 3] = 0
+                
+            # recode haploid genotypes    
+            if not any("/" in b for b in record.gt_bases):
+                gt_new = np.divide(gt_new, 2.)
+            
             M[:,st] = M[:,st]+gt_new
             numsites_keep += 1
 
