@@ -7,7 +7,7 @@ pandas==0.20
 scipy==0.19
 scikit-learn==0.19.1
 matplotlib==2.0
-biopython==1.70
+biopython==1.71
 cyvcf2==0.8
-pyfaidx==0.5
+pyfaidx==0.5.4
 joblib==0.11
