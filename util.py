@@ -625,7 +625,7 @@ class DecompModel:
             elif self.rank == 0:
                 util_log.debug("Finding optimal rank for " + decomp + " decomposition")
                 self.evarprev = 0
-                for i in range(1,6):
+                for i in range(1,self.M_run.shape[0]):
                     model = self.NMFmod(rank=i)
                     model_fit = model()
                     evar = model_fit.fit.evar()
