@@ -1,7 +1,7 @@
 site_name: helmsman
 site_url: https://github.com/carjed/helmsman
 repo_url: https://github.com/carjed/helmsman
-pages:
+nav:
   - Home: index.md
   - Usage: usage.md
   - FAQ: faq.md

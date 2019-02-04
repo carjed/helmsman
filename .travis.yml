@@ -1,27 +1,26 @@
 language: python
 python:
-  # - "2.7"
-  - "3.5"
-  - "3.6"
+- '3.5'
+- '3.6'
 install:
-  - sudo apt-get update
-  # We do this conditionally because it saves us some downloading if the
-  # version is the same.
-  - if [[ "$TRAVIS_PYTHON_VERSION" == "2.7" ]]; then
-      wget https://repo.continuum.io/miniconda/Miniconda2-latest-Linux-x86_64.sh -O miniconda.sh;
-    else
-      wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh;
-    fi
-  - bash miniconda.sh -b -p $HOME/miniconda
-  - export PATH="$HOME/miniconda/bin:$PATH"
-  - hash -r
-  - conda config --set always_yes yes --set changeps1 no
-  - conda update -q conda
-  # Useful for debugging any issues with conda
-  - conda info -a
-  - conda env create -q -n test-environment python=$TRAVIS_PYTHON_VERSION -f env.yml
-  - source activate test-environment
-
+- sudo apt-get update
+- if [[ "$TRAVIS_PYTHON_VERSION" == "2.7" ]]; then wget https://repo.continuum.io/miniconda/Miniconda2-latest-Linux-x86_64.sh
+  -O miniconda.sh; else wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh
+  -O miniconda.sh; fi
+- bash miniconda.sh -b -p $HOME/miniconda
+- export PATH="$HOME/miniconda/bin:$PATH"
+- hash -r
+- conda config --set always_yes yes --set changeps1 no
+- conda update -q conda
+- conda info -a
+- conda env create -q -n test-environment python=$TRAVIS_PYTHON_VERSION -f env.yml
+- source activate test-environment
 script:
-  - python helmsman.py --mode vcf --input data/chr22.16050075-16992642.1kg.phase3.vcf.gz --fastafile data/chr22.fasta.gz --decomp nmf --rank 4 --package deconstructSigs --verbose
-  - python helmsman.py --mode agg --input data/gsc_LIHC.subtype_count_matrix.txt --decomp pca --rank 4 --package SomaticSignatures --verbose
+- python helmsman.py --mode vcf --input data/chr22.16050075-16992642.1kg.phase3.vcf.gz
+  --fastafile data/chr22.fasta.gz --decomp nmf --rank 4 --package deconstructSigs
+  --verbose
+- python helmsman.py --mode agg --input data/gsc_LIHC.subtype_count_matrix.txt --decomp
+  pca --rank 4 --package SomaticSignatures --verbose
+notifications:
+  webhooks:
+    - secure: avJDXZYO/+j+lSCq3iI4tg629U4yPQMvCnzNtjWCdQ8jmqUH8AIw2Ox0C5IQdVYYjWldT7ckSdkHeh0qJUiZ5TxYAoIQPpHmgOzmO5ycvp8vPilgc+G3ZIUyR3ceeLThUjEX6IUuJzKCZg0w0NI/f2NPz6aEwvo6cDnydwmQrmwOxYjm6Lsx7NY1T4S2UJjnHgv6+ZG4Jf6PXJXSckASHu0zb2o+JPci0vNDoelIDPpmiLYlwP1WckgVl8seD8kfUZZrLIn3mx1C9XSYus5uonq8nn6dwYiVnGNgidI99gGIsVRaMthYvVz2ZY3sZKjA6Op2V7r6ajSDtFBjJ4yeKsZqTGNwX4BXqhir0wSFvvm7JVQIFxZLmHeUqFEcK/ANOiAom6bg8S72KQpnvq5TFZkNgg6b3AHVZg+tDtwok/9+s1pGJZuV9jyrSitWf/oaX4XONHruXgXtAKrv1tSy86jbSZmO3bhI63soJoT2egtyQ1pvqgfEZZrwl/p0F58IhkEbcxHA//urs4BBATGMUgpcQmLi40p3uLsZsKkAEfBKR463WtejD7ntXbSLk3rvlrk1rf5JB3GL+oBgUUb1aL4ubvCYyNw2/id8FOViKcXjgmB0szaOObJ6n9omMxbGwZawAtfHqGLcqhpzPLjKGjNSI8uAELj3iuzZiL6s3JM=
