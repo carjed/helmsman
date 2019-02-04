@@ -513,7 +513,7 @@ def processTxt(args, subtypes_dict):
 ###############################################################################
 def getSamples(fh):
     samples = np.loadtxt(fh,
-        dtype='S20',
+        dtype='S80',
         skiprows=1,
         delimiter='\t',
         usecols=(0,))
