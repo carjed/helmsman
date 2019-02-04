@@ -1,4 +1,4 @@
-![](https://raw.githubusercontent.com/carjed/helmsman/master/assets/helmsman_logo2.png)
+<img src="https://raw.githubusercontent.com/carjed/helmsman/master/assets/Helmsman_white_bg.png" width="400" height="400">
 
 [![DOI](https://zenodo.org/badge/136064814.svg)](https://zenodo.org/badge/latestdoi/136064814) [![Docs](https://img.shields.io/badge/docs-latest-blue.svg)](http://www.jedidiahcarlson.com/docs/helmsman) [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg?style=flat)](https://opensource.org/licenses/MIT) [![Binder](https://img.shields.io/badge/launch-binder-d06681.svg?style=flat)](https://mybinder.org/v2/gh/carjed/helmsman/master) [![Build Status](https://travis-ci.org/carjed/helmsman.svg?branch=master)](https://travis-ci.org/carjed/helmsman)
 
@@ -94,7 +94,11 @@ Suppose we have a Variant Call format (VCF) file named `input.vcf`, containing t
 python helmsman.py --input /path/to/input.vcf --fastafile /path/to/reference_genome.fasta --projectdir /path/to/output/
 ```
 
-<!-- ### Citation
-If you use Helmsman in your research, please cite our [paper](#) (citation pending). -->
+# Citation
+If you use Helmsman in your research, please cite our [paper](https://bmcgenomics.biomedcentral.com/articles/10.1186/s12864-018-5264-y) published in BMC Genomics:
 
-[logo](https://www.kisspng.com/png-computer-icons-icon-design-2740670/) [logo font](http://www.1001fonts.com/sailor-scrawl-font.html)
+> Carlson J, Li JZ, Z&ouml;llner S. Helmsman: fast and efficient mutation signature analysis for massive sequencing datasets. *BMC Genomics.* 2018;19:845. [`doi:10.1186/s12864-018-5264-y`](http://dx.doi.org/10.1186/s12864-018-5264-y)
+
+-------------
+
+The Helmsman mascot was designed by Robert James Russell—view more of his work at http://www.robertjamesrussell.com/art/ and follow him on Twitter at [@robhollywood](https://twitter.com/robhollywood)!
