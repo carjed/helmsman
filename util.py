@@ -491,7 +491,7 @@ def processTxt(args, subtypes_dict):
                     lseq = sequence[pos-1].seq
                     # eprint("lseq:", lseq)
                 motif_a = getMotif(pos, lseq)
-                subtype = str(category + "-" + motif_a)
+                subtype = str(category + "." + motif_a)
                 st = subtypes_dict[subtype]
 
                 if sample not in samples_dict:
