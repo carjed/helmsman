@@ -11,6 +11,7 @@
 require(pryr)
 require(yaml)
 
+
 # put file paths for the vcf, maf, and fasta files in helmsman/test/_config.yaml
 keys1 <- yaml.load_file("helmsman/test/_config.yaml")
 
@@ -23,7 +24,7 @@ chr22.vcf <- keys1$vcf
 lihc.maf <- keys1$maf
 
 # unlike other packages, maftools reads reference genome from file on disk instead of using Bioconductor packages,
-# so we need to specify where the fasta file is stored
+# so we need to specify where the hg19 fasta file is stored
 ref.fasta <- keys1$fasta
 
 #-----------------------------------------------------------------------------
