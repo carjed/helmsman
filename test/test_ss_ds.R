@@ -9,15 +9,22 @@
 # pryr package for measuring memory usage of individual objects
 # note that this is not the same as the memory usage reported in the manuscript!
 require(pryr)
+require(yaml)
+
+# put file paths for the vcf, maf, and fasta files in helmsman/test/_config.yaml
+keys1 <- yaml.load_file("helmsman/test/_config.yaml")
 
 # due to how the deconstructSigs package parse VCFs, need to use test VCF without RSIDs for each variant
-chr22.vcf <- "/mnt/norbert/data/1kg/chr22.noid.test.vcf"
+# this file is identical to data/chr22.16050075-16992642.1kg.phase3.vcf.gz, but with all values in the ID column set to "."
+chr22.vcf <- keys1$vcf
 
-# maf file for testing maftools package
-lihc.maf <- "/mnt/norbert/data/tcga/15ce66c6-0211-4f03-bd41-568d0818a044/gsc_LIHC_pairs.aggregated.capture.tcga.uuid.automated.somatic.maf"
+# maf file for testing maftools package, downloaded from:
+# https://portal.gdc.cancer.gov/legacy-archive/files/15ce66c6-0211-4f03-bd41-568d0818a044
+lihc.maf <- keys1$maf
 
-# unlike other packages, maftools reads reference genome from file on disk instead of using Bioconductor packages
-ref.fasta <- "/mnt/norbert/data/ref/human_g1k_v37_min.fasta"
+# unlike other packages, maftools reads reference genome from file on disk instead of using Bioconductor packages,
+# so we need to specify where the fasta file is stored
+ref.fasta <- keys1$fasta
 
 #-----------------------------------------------------------------------------
 # SomaticSignatures
