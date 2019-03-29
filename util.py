@@ -10,6 +10,7 @@ import warnings
 import itertools
 import collections
 import csv
+from joblib import Parallel, delayed
 from logging import StreamHandler, getLogger as realGetLogger, Formatter
 from colorama import Fore, Back, Style
 # matrix+stats processing
@@ -189,6 +190,16 @@ def indexGroups(samplefile, groupvar):
     return sg_dict
 
 
+def get_samples(sample_file):
+    """ get samples from input M matrix when using aggregation mode """
+    samples = np.loadtxt(
+        sample_file, dtype='S120', skiprows=1, delimiter='\t', usecols=(0, ))
+
+    util_log.debug("%s contains %s samples", sample_file, len(samples))
+
+    return samples
+
+
 def parseSampleFile(samplefile):
     """ get list of samples to keep if samplefile supplied """
     # f = open(args.input, 'r', encoding = "ISO-8859-1")
@@ -218,347 +229,398 @@ def get_samples_vcf(args, inputvcf):
     return samples
 
 
-def process_vcf(args, inputvcf, subtypes_dict, par):
-    """ Main function for parsing VCF """
-    # initialize reference genome
-    fasta_reader = Fasta(args.fastafile, read_ahead=1000000)
+class processInput:
+    """
+    Methods for parsing input data into sample x subtype count matrices:
+    - MAF format
+    - plain text format
+    - Aggregation of existing subtype count matrices
+    """
 
-    # initialize vcf reader
-    if args.samplefile:
-        keep_samples = parseSampleFile(args.samplefile)
+    def __init__(self, mode, args, subtypes_dict, par=False):
+        self.mode = mode
+        self.args = args
+        self.subtypes_dict = subtypes_dict
+        self.par = par
 
-        vcf_reader = VCF(
-            inputvcf, mode='rb', gts012=True, lazy=True, samples=keep_samples)
-    else:
-        vcf_reader = VCF(inputvcf, mode='rb', gts012=True, lazy=True)
+        if self.mode == "agg":
+            self.data = self.process_agg()
+        elif self.mode == "txt":
+            self.data = self.process_txt()
+        elif self.mode == "maf":
+            self.data = self.process_maf()
+        elif self.mode == "vcf":
+            if (args.input.lower().endswith(('.vcf', '.vcf.gz', '.bcf'))
+                    or args.input == "-"):
+                par = False
+                self.data = self.process_vcf(args.input)
+            elif args.input.lower().endswith(('.txt')):
+                self.par = True
+                with open(args.input) as vcf_list_file:
+                    vcf_list = vcf_list_file.read().splitlines()
 
-    nbp = (args.length - 1) // 2
+                results = Parallel(n_jobs=args.cpus) \
+                    (delayed(self.process_vcf)(vcf) \
+                    for vcf in vcf_list)
 
-    # index samples
-    if (args.samplefile and args.groupvar):
-        all_samples = vcf_reader.samples
+                if args.rowwise:
+                    count_matrix = np.vstack(results)
 
-        sg_dict = indexGroups(args.samplefile, args.groupvar)
-        samples = sorted(list(set(sg_dict.values())))
+                    samples = np.array([])
+                    for vcf in vcf_list:
+                        samples = np.append(samples, self.get_samples_vcf(vcf))
 
-        util_log.debug("%s samples will be pooled into %s groups: %s",
-                       len(all_samples), len(samples), ",".join(samples))
-    else:
-        samples = vcf_reader.samples
+                else:
+                    nrow, ncol = results[1].shape
+                    count_matrix = np.zeros((nrow, ncol))
 
-    samples_dict = {}
-    for i in enumerate(samples):
-        samples_dict[samples[i]] = i
+                    for count_matrix_i in results:
+                        count_matrix = np.add(count_matrix, count_matrix_i)
+                    self.par
+                    samples = np.array([get_samples_vcf(args, vcf_list[1])])
+                self.data = collections.namedtuple('Out', ['M', 'samples'])(
+                    count_matrix, samples)
 
-    # Query records in VCF and build matrix
-    M = np.zeros((len(samples), len(subtypes_dict)))
-    numsites_keep = 0
-    numsites_skip = 0
-    chrseq = '0'
-    chr_check = "none"
+    def process_vcf(self, inputfile):
+        """ Main function for parsing VCF """
+        # initialize reference genome
+        fasta_reader = Fasta(self.args.fastafile, read_ahead=1000000)
 
-    for record in vcf_reader:
+        # initialize vcf reader
+        if self.args.samplefile:
+            keep_samples = parseSampleFile(self.args.samplefile)
 
-        # Filter by SNP status, # alt alleles, and FILTER column
-        if (not record.is_snp or len(record.ALT) != 1
-                or record.FILTER is not None):
-            numsites_skip += 1
-            continue
+            vcf_reader = VCF(
+                inputfile,
+                mode='rb',
+                gts012=True,
+                lazy=True,
+                samples=keep_samples)
+        else:
+            vcf_reader = VCF(inputfile, mode='rb', gts012=True, lazy=True)
 
-        # Filter by allele count
-        if record.INFO['AC'] > args.maxac > 0:
-            numsites_skip += 1
-            continue
+        nbp = (self.args.length - 1) // 2
 
-        row_chr = record.CHROM
+        # index samples
+        if (self.args.samplefile and self.args.groupvar):
+            all_samples = vcf_reader.samples
 
-        # check chromosome formatting matches between MAF and fasta files
-        if numsites_keep == 0:
-            if "chr1" in fasta_reader and "chr" not in row_chr:
-                chr_check = "add"
-                util_log.debug("formatting mismatch: 'chr' only in fasta file")
-            elif "chr1" not in fasta_reader and "chr" in row_chr:
-                chr_check = "delete"
-                util_log.debug("formatting mismatch: 'chr' only in MAF file")
-            else:
-                util_log.debug("chromosome formatting matches")
+            sg_dict = indexGroups(self.args.samplefile, self.args.groupvar)
+            samples = sorted(list(set(sg_dict.values())))
 
-        if chr_check == "add":
-            row_chr = "chr" + row_chr
-        elif chr_check == "delete":
-            row_chr = row_chr.replace('chr', '')
+            util_log.debug("%s samples will be pooled into %s groups: %s",
+                           len(all_samples), len(samples), ",".join(samples))
+        else:
+            samples = vcf_reader.samples
 
-        if row_chr != chrseq:
-            sequence = fasta_reader[row_chr]
-            chrseq = row_chr
+        samples_dict = {}
+        for i, sample in enumerate(samples):
+            samples_dict[sample] = i
 
-        # check and update chromosome sequence
-        # if record.CHROM != chrseq:
-        #     sequence = fasta_reader[record.CHROM]
-        #     chrseq = record.CHROM
+        # Query records in VCF and build matrix
+        M = np.zeros((len(samples), len(self.subtypes_dict)))
+        numsites_keep = 0
+        numsites_skip = 0
+        chrseq = '0'
+        chr_check = "none"
 
-        lseq = sequence[record.POS - (nbp + 1):record.POS + nbp].seq
+        for record in vcf_reader:
 
-        mu_type = record.REF + str(record.ALT[0])
-        category = getCategory(mu_type)
-        motif_a = getMotif(lseq)
-        subtype = str(category + "." + motif_a)
-
-        if subtype not in subtypes_dict:
-            numsites_skip += 1
-            continue
-
-        st = subtypes_dict[subtype]
-
-        # currently only works with singletons--
-        if (args.samplefile and args.groupvar):
-
-            if record.gt_types.sum() == 0:
+            # Filter by SNP status, # alt alleles, and FILTER column
+            if (not record.is_snp or len(record.ALT) != 1
+                    or record.FILTER is not None):
                 numsites_skip += 1
                 continue
 
-            carrier = all_samples[record.gt_types.tolist().index(1)]
-            if carrier not in sg_dict:
+            # Filter by allele count
+            if record.INFO['AC'] > self.args.maxac > 0:
                 numsites_skip += 1
                 continue
 
-            sample_gp = sg_dict[carrier]
-            ind = samples.index(sample_gp)
-            M[ind, st] += 1
-            numsites_keep += 1
+            row_chr = record.CHROM
 
-        else:
-            gt_new = record.gt_types
-            if (args.impute and 3 in gt_new):
-                gt_complete = gt_new[gt_new != 3]
-                freq = sum(gt_complete) / len(gt_complete)
-                gt_new[gt_new == 3] = freq
+            # check chromosome formatting matches between MAF and fasta files
+            if numsites_keep == 0:
+                if "chr1" in fasta_reader and "chr" not in row_chr:
+                    chr_check = "add"
+                    util_log.debug(
+                        "formatting mismatch: 'chr' only in fasta file")
+                elif "chr1" not in fasta_reader and "chr" in row_chr:
+                    chr_check = "delete"
+                    util_log.debug(
+                        "formatting mismatch: 'chr' only in MAF file")
+                else:
+                    util_log.debug("chromosome formatting matches")
+
+            if chr_check == "add":
+                row_chr = "chr" + row_chr
+            elif chr_check == "delete":
+                row_chr = row_chr.replace('chr', '')
+
+            if row_chr != chrseq:
+                sequence = fasta_reader[row_chr]
+                chrseq = row_chr
+
+            # check and update chromosome sequence
+            # if record.CHROM != chrseq:
+            #     sequence = fasta_reader[record.CHROM]
+            #     chrseq = record.CHROM
+
+            lseq = sequence[record.POS - (nbp + 1):record.POS + nbp].seq
+
+            mu_type = record.REF + str(record.ALT[0])
+            category = getCategory(mu_type)
+            motif_a = getMotif(lseq)
+            subtype = str(category + "." + motif_a)
+
+            if subtype not in self.subtypes_dict:
+                numsites_skip += 1
+                continue
+
+            st = self.subtypes_dict[subtype]
+
+            # currently only works with singletons--
+            if (self.args.samplefile and self.args.groupvar):
+
+                if record.gt_types.sum() == 0:
+                    numsites_skip += 1
+                    continue
+
+                carrier = all_samples[record.gt_types.tolist().index(1)]
+                if carrier not in sg_dict:
+                    numsites_skip += 1
+                    continue
+
+                sample_gp = sg_dict[carrier]
+                ind = samples.index(sample_gp)
+                M[ind, st] += 1
+                numsites_keep += 1
+
             else:
-                gt_new[gt_new == 3] = 0
+                gt_new = record.gt_types
+                if (self.args.impute and 3 in gt_new):
+                    gt_complete = gt_new[gt_new != 3]
+                    freq = sum(gt_complete) / len(gt_complete)
+                    gt_new[gt_new == 3] = freq
 
-            # recode haploid genotypes
-            if not any("/" in b for b in record.gt_bases):
-                gt_new = np.divide(gt_new, 2.)
+                else:
+                    gt_new[gt_new == 3] = 0
 
-            M[:, st] = M[:, st] + gt_new
-            numsites_keep += 1
+                # if not any("/" in b for b in record.gt_bases):
+                if self.args.haploid:
+                    gt_new = np.divide(gt_new, 2.)
 
-        if numsites_keep % 1000000 != 0:
-            continue
-        util_log.debug("%s : %s sites counted", inputvcf, numsites_keep)
+                M[:, st] = M[:, st] + gt_new
+                numsites_keep += 1
+                # util_log.debug(gt_new)
 
-    util_log.debug("%s : %s sites counted", inputvcf, numsites_keep)
-    util_log.debug("%s : %s sites skipped", inputvcf, numsites_skip)
+            if numsites_keep % 100000 != 0:
+                continue
+            util_log.debug("%s : %s sites counted", inputfile, numsites_keep)
 
-    out = collections.namedtuple('Out', ['M', 'samples'])(M, samples)
-    if par:
-        out = M
+        util_log.debug("%s : %s sites counted", inputfile, numsites_keep)
+        util_log.debug("%s : %s sites skipped", inputfile, numsites_skip)
 
-    return out
+        out = collections.namedtuple('Out', ['M', 'samples'])(M, samples)
+        if self.par:
+            out = M
 
+        return out
 
-def process_maf(args, subtypes_dict):
-    """ process MAF files """
-    fasta_reader = Fasta(args.fastafile, read_ahead=1000000)
+    def process_maf(self):
+        """ process MAF files """
+        fasta_reader = Fasta(self.args.fastafile, read_ahead=1000000)
 
-    nbp = (args.length - 1) // 2
-    samples_dict = {}
+        nbp = (self.args.length - 1) // 2
+        samples_dict = {}
 
-    # M = np.zeros((len(samples), len(subtypes_dict)))
-    numsites_keep = 0
-    numsites_skip = 0
-    chrseq = '0'
+        # M = np.zeros((len(samples), len(subtypes_dict)))
+        numsites_keep = 0
+        numsites_skip = 0
+        chrseq = '0'
 
-    maf_file = open(args.input, 'r', encoding="ISO-8859-1")
+        maf_file = open(self.args.input, 'r', encoding="ISO-8859-1")
 
-    reader = csv.DictReader(
-        filter(lambda row: row[0] != '#', maf_file), delimiter='\t')
-    counter = 0
-    chr_check = "none"
-    for row in reader:
-
-        if (row['Variant_Type'] not in ["SNP", "SNV"]):
-            continue
-
-        if 'Start_Position' in row:
-            pos = int(row['Start_Position'])
-        else:
-            pos = int(row['Start_position'])
-        ref = row['Reference_Allele']
-        alt = row['Tumor_Seq_Allele2']
-        row_chr = row['Chromosome']
-        sample = row[args.groupvar]
-
-        # check chromosome formatting matches between MAF and fasta files
-        if counter == 0:
-            if "chr1" in fasta_reader and "chr" not in row_chr:
-                chr_check = "add"
-                util_log.debug("formatting mismatch: 'chr' only in fasta file")
-            elif "chr1" not in fasta_reader and "chr" in row_chr:
-                chr_check = "delete"
-                util_log.debug("formatting mismatch: 'chr' only in MAF file")
-            else:
-                util_log.debug("chromosome formatting matches")
-
-        if chr_check == "add":
-            row_chr = "chr" + row_chr
-        elif chr_check == "delete":
-            row_chr = row_chr.replace('chr', '')
-
-        if row_chr != chrseq:
-            sequence = fasta_reader[row_chr]
-            chrseq = row_chr
-
-        # if row['Chromosome'] != chrseq:
-        #     sequence = fasta_reader[row['Chromosome']]
-        #     chrseq = row['Chromosome']
-
-        counter += 1
-        mu_type = ref + alt
-        category = getCategory(mu_type)
-        lseq = sequence[pos - (nbp + 1):pos + nbp].seq
-
-        motif_a = getMotif(lseq)
-        subtype = str(category + "." + motif_a)
-        # st = subtypes_dict[subtype]
-
-        if sample not in samples_dict:
-            samples_dict[sample] = {}
-
-        if subtype not in samples_dict[sample]:
-            samples_dict[sample][subtype] = 1
-        else:
-            samples_dict[sample][subtype] += 1
-
-        if counter % 1000 != 0:
-            continue
-        util_log.debug("%s : %s sites counted", args.input, counter)
-
-    M = pd.DataFrame(samples_dict).T.fillna(0).values
-    samples = sorted(samples_dict)
-
-    out = collections.namedtuple('Out', ['M', 'samples'])(M, samples)
-    return out
-
-
-def process_txt(args, subtypes_dict):
-    """
-    process tab-delimited text file, containing the following columns:
-    CHR    POS    REF    ALT    SAMPLE_ID
-    """
-
-    fasta_reader = Fasta(args.fastafile, read_ahead=1000000)
-
-    nbp = (args.length - 1) // 2
-    samples_dict = {}
-
-    numsites_keep = 0
-    numsites_skip = 0
-    chrseq = '0'
-
-    with open(args.input, 'r') as txt_file:
-        reader = csv.reader(txt_file, delimiter='\t')
-
+        reader = csv.DictReader(
+            filter(lambda row: row[0] != '#', maf_file), delimiter='\t')
+        counter = 0
+        chr_check = "none"
         for row in reader:
-            chrom = row[0]
-            pos = int(row[1])
-            ref = row[2]
-            alt = row[3]
-            sample = row[4]
 
-            if chrom != chrseq:
-                sequence = fasta_reader[chrom]
-                chrseq = chrom
+            if (row['Variant_Type'] not in ["SNP", "SNV"]):
+                continue
 
-            if (len(alt) == 1 and len(ref) == 1):
-                mu_type = ref + alt
-                category = getCategory(mu_type)
-                if nbp > 0:
-                    lseq = sequence[pos - (nbp + 1):pos + nbp].seq
+            if 'Start_Position' in row:
+                pos = int(row['Start_Position'])
+            else:
+                pos = int(row['Start_position'])
+            ref = row['Reference_Allele']
+            alt = row['Tumor_Seq_Allele2']
+            row_chr = row['Chromosome']
+            sample = row[self.args.groupvar]
+
+            # check chromosome formatting matches between MAF and fasta files
+            if counter == 0:
+                if "chr1" in fasta_reader and "chr" not in row_chr:
+                    chr_check = "add"
+                    util_log.debug(
+                        "formatting mismatch: 'chr' only in fasta file")
+                elif "chr1" not in fasta_reader and "chr" in row_chr:
+                    chr_check = "delete"
+                    util_log.debug(
+                        "formatting mismatch: 'chr' only in MAF file")
                 else:
-                    lseq = sequence[pos - 1].seq
-                    # eprint("lseq:", lseq)
-                motif_a = getMotif(lseq)
-                subtype = str(category + "." + motif_a)
-                st = subtypes_dict[subtype]
+                    util_log.debug("chromosome formatting matches")
 
-                if sample not in samples_dict:
-                    samples_dict[sample] = {}
+            if chr_check == "add":
+                row_chr = "chr" + row_chr
+            elif chr_check == "delete":
+                row_chr = row_chr.replace('chr', '')
 
-                if subtype not in samples_dict[sample]:
-                    samples_dict[sample][subtype] = 1
-                else:
-                    samples_dict[sample][subtype] += 1
+            if row_chr != chrseq:
+                sequence = fasta_reader[row_chr]
+                chrseq = row_chr
+
+            # if row['Chromosome'] != chrseq:
+            #     sequence = fasta_reader[row['Chromosome']]
+            #     chrseq = row['Chromosome']
+
+            counter += 1
+            mu_type = ref + alt
+            category = getCategory(mu_type)
+            lseq = sequence[pos - (nbp + 1):pos + nbp].seq
+
+            motif_a = getMotif(lseq)
+            subtype = str(category + "." + motif_a)
+            # st = subtypes_dict[subtype]
+
+            if sample not in samples_dict:
+                samples_dict[sample] = {}
+
+            if subtype not in samples_dict[sample]:
+                samples_dict[sample][subtype] = 1
+            else:
+                samples_dict[sample][subtype] += 1
+
+            if counter % 1000 != 0:
+                continue
+            util_log.debug("%s : %s sites counted", self.args.input, counter)
 
         M = pd.DataFrame(samples_dict).T.fillna(0).values
         samples = sorted(samples_dict)
 
-    out = collections.namedtuple('Out', ['M', 'samples'])(M, samples)
-    return out
+        out = collections.namedtuple('Out', ['M', 'samples'])(M, samples)
+        return out
 
+    def process_agg(self):
+        """ aggregate M matrices from list of input files """
+        inputM = self.args.input
+        colnames = ["ID"]
+        M_colnames = colnames + list(sorted(self.subtypes_dict.keys()))
+        colrange = range(1, len(M_colnames))
 
-def get_samples(sample_file):
-    """ get samples from input M matrix when using aggregation mode """
-    samples = np.loadtxt(
-        sample_file, dtype='S120', skiprows=1, delimiter='\t', usecols=(0, ))
+        if (inputM.lower().endswith('m_samples.txt')
+                or inputM.lower().endswith('m_regions.txt')):
+            with open(inputM) as f:
+                file_list = f.read().splitlines()
 
-    util_log.debug("%s contains %s samples", sample_file, len(samples))
+            # M output by sample
+            if inputM.lower().endswith('m_samples.txt'):
 
-    return samples
+                M_out = np.array([M_colnames])
 
+                for mfile in file_list:
+                    samples = get_samples(mfile)
 
-def aggregateM(inputM, subtypes_dict):
-    """ aggregate M matrices from list of input files """
-    colnames = ["ID"]
-    M_colnames = colnames + list(sorted(subtypes_dict.keys()))
-    colrange = range(1, len(M_colnames))
+                    M_it = np.loadtxt(mfile, skiprows=1, usecols=colrange)
+                    M_it = np.concatenate((np.array([samples]).T, M_it),
+                                          axis=1)
+                    M_out = np.concatenate((M_out, M_it), axis=0)
 
-    if (inputM.lower().endswith('m_samples.txt')
-            or inputM.lower().endswith('m_regions.txt')):
-        with open(inputM) as f:
-            file_list = f.read().splitlines()
+                M = np.delete(M_out, 0, 0)
+                M = np.delete(M, 0, 1)
+                M = M.astype(np.float)
 
-        # M output by sample
-        if inputM.lower().endswith('m_samples.txt'):
+            # M output by region
+            elif inputM.lower().endswith('m_regions.txt'):
+                samples = get_samples(file_list[0])
 
-            M_out = np.array([M_colnames])
+                M_out = np.zeros((len(samples), len(M_colnames) - 1))
+                for mfile in file_list:
+                    M_it = np.loadtxt(mfile, skiprows=1, usecols=colrange)
+                    M_out = np.add(M_out, M_it)
 
-            for mfile in file_list:
-                samples = get_samples(mfile)
+                M = M_out.astype(np.float)
 
-                M_it = np.loadtxt(mfile, skiprows=1, usecols=colrange)
-                M_it = np.concatenate((np.array([samples]).T, M_it), axis=1)
-                M_out = np.concatenate((M_out, M_it), axis=0)
-
-            M = np.delete(M_out, 0, 0)
-            M = np.delete(M, 0, 1)
+        else:
+            samples = get_samples(inputM)
+            M = np.loadtxt(inputM, skiprows=1, usecols=colrange)
             M = M.astype(np.float)
 
-        # M output by region
-        elif inputM.lower().endswith('m_regions.txt'):
-            samples = get_samples(file_list[0])
+        out = collections.namedtuple('Out', ['M', 'samples'])(M, samples)
+        return out
 
-            M_out = np.zeros((len(samples), len(M_colnames) - 1))
-            for mfile in file_list:
-                M_it = np.loadtxt(mfile, skiprows=1, usecols=colrange)
-                M_out = np.add(M_out, M_it)
+    def process_txt(self):
+        """
+        process tab-delimited text file, containing the following columns:
+        CHR    POS    REF    ALT    SAMPLE_ID
+        """
 
-            M = M_out.astype(np.float)
+        fasta_reader = Fasta(self.args.fastafile, read_ahead=1000000)
 
-    else:
-        samples = get_samples(inputM)
-        M = np.loadtxt(inputM, skiprows=1, usecols=colrange)
-        M = M.astype(np.float)
+        nbp = (self.args.length - 1) // 2
+        samples_dict = {}
 
-    out = collections.namedtuple('Out', ['M', 'samples'])(M, samples)
-    return out
+        numsites_keep = 0
+        numsites_skip = 0
+        chrseq = '0'
+
+        with open(self.args.input, 'r') as txt_file:
+            reader = csv.reader(txt_file, delimiter='\t')
+
+            for row in reader:
+                chrom = row[0]
+                pos = int(row[1])
+                ref = row[2]
+                alt = row[3]
+                sample = row[4]
+
+                if chrom != chrseq:
+                    sequence = fasta_reader[chrom]
+                    chrseq = chrom
+
+                if (len(alt) == 1 and len(ref) == 1):
+                    mu_type = ref + alt
+                    category = getCategory(mu_type)
+                    if nbp > 0:
+                        lseq = sequence[pos - (nbp + 1):pos + nbp].seq
+                    else:
+                        lseq = sequence[pos - 1].seq
+                        # eprint("lseq:", lseq)
+                    motif_a = getMotif(lseq)
+                    subtype = str(category + "." + motif_a)
+                    st = self.subtypes_dict[subtype]
+
+                    if sample not in samples_dict:
+                        samples_dict[sample] = {}
+
+                    if subtype not in samples_dict[sample]:
+                        samples_dict[sample][subtype] = 1
+                    else:
+                        samples_dict[sample][subtype] += 1
+
+            M = pd.DataFrame(samples_dict).T.fillna(0).values
+            samples = sorted(samples_dict)
+
+        out = collections.namedtuple('Out', ['M', 'samples'])(M, samples)
+        return out
 
 
 class DecompModel:
     """ Class for fitting PCA or NMF models """
 
     def __init__(self, M_run, rank, seed, decomp):
-        self.M_run = M_run
+        self.M_run = M_run / (M_run.sum(axis=1) + 1e-8)[:, None]
         self.rank = rank
         self.seed = seed
         self.decomp = decomp
@@ -654,34 +716,49 @@ class DecompModel:
         return model
 
 
-def writeM(M, M_path, subtypes_dict, samples):
-    """ write M matrix """
-    M_out = pd.DataFrame(
-        data=M, index=samples[0], columns=list(sorted(subtypes_dict.keys())))
+class writeOutput:
+    def __init__(self, dat_paths, samples, subtypes_dict):
+        """ abc """
+        self.dat_paths = dat_paths
+        self.samples = samples
+        self.subtypes_dict = subtypes_dict
 
-    M_out.to_csv(M_path, index_label="ID", sep="\t")
+    def writeW(self, decomp_data):
+        """ write W matrix """
+        num_sigs = decomp_data.W.shape[1]
+        W_out = pd.DataFrame(
+            data=decomp_data.W,
+            index=self.samples[0],
+            columns=["S" + str(i) for i in range(1, num_sigs + 1)])
+        W_out.to_csv(self.dat_paths["W_path"], index_label="ID", sep="\t")
 
+    def writeH(self, decomp_data):
+        """ write H matrix """
+        num_sigs = decomp_data.H.shape[0]
+        H_out = pd.DataFrame(
+            data=decomp_data.H,
+            index=["S" + str(i) for i in range(1, num_sigs + 1)],
+            columns=list(sorted(self.subtypes_dict.keys())))
+        H_out.to_csv(self.dat_paths["H_path"], index_label="Sig", sep="\t")
 
-def writeW(W, W_path, samples):
-    """ write W matrix """
-    num_sigs = W.shape[1]
-    W_out = pd.DataFrame(
-        data=W,
-        index=samples[0],
-        columns=["S" + str(i) for i in range(1, num_sigs + 1)])
+    def writeM(self, count_matrix):
+        """ write M matrix """
 
-    W_out.to_csv(W_path, index_label="ID", sep="\t")
+        count_matrix_df = pd.DataFrame(
+            data=count_matrix,
+            index=self.samples[0],
+            columns=list(sorted(self.subtypes_dict.keys())))
+        count_matrix_df.to_csv(
+            self.dat_paths["M_path"], index_label="ID", sep="\t")
 
+        freq_matrix = count_matrix / (count_matrix.sum(axis=1) + 1e-8)[:, None]
 
-def writeH(H, H_path, subtypes_dict):
-    """ write H matrix """
-    num_sigs = H.shape[0]
-    H_out = pd.DataFrame(
-        data=H,
-        index=["S" + str(i) for i in range(1, num_sigs + 1)],
-        columns=list(sorted(subtypes_dict.keys())))
-
-    H_out.to_csv(H_path, index_label="Sig", sep="\t")
+        freq_matrix_df = pd.DataFrame(
+            data=freq_matrix,
+            index=self.samples[0],
+            columns=list(sorted(self.subtypes_dict.keys())))
+        freq_matrix_df.to_csv(
+            self.dat_paths["M_path_rates"], index_label="ID", sep="\t")
 
 
 def writeR(package, projectdir, matrixname):

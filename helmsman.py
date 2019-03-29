@@ -12,15 +12,15 @@ import random
 import multiprocessing
 import subprocess
 import numpy as np
-from joblib import Parallel, delayed
+# from joblib import Parallel, delayed
 sys.path.append(os.getcwd())
 import util
 
 
 def main():
-    ###############################################################################
+    #-----------------------------------------------------------------------------
     # Initialize pre-log, get version, and process args
-    ###############################################################################
+    #-----------------------------------------------------------------------------
     start = timeit.default_timer()
 
     # get latest version from github tags
@@ -130,6 +130,15 @@ def main():
         nargs='?',
         type=str,
         metavar='STR')
+
+    parser.add_argument(
+        "-H",
+        "--haploid",
+        help=
+        "By default, Helmsman assumes diploid genotypes. For data containing \
+                            haploid genotypes (e.g., male X chromosome), you must use \
+                            this flag to ensure alleles are properly counted",
+        action="store_true")
 
     parser.add_argument(
         "-u",
@@ -302,55 +311,13 @@ def main():
     #-----------------------------------------------------------------------------
     subtypes_dict = util.indexSubtypes(args.length)
 
-    ###############################################################################
+    #-----------------------------------------------------------------------------
     # Build M matrix from inputs
-    ###############################################################################
-    if args.mode == "vcf":
-        if (args.input.lower().endswith(('.vcf', '.vcf.gz', '.bcf'))
-                or args.input == "-"):
-            par = False
-            data = util.process_vcf(args, args.input, subtypes_dict, par)
-            count_matrix = data.M
-            samples = np.array([data.samples], dtype=str)
-
-        elif args.input.lower().endswith(('.txt')):
-            par = True
-            with open(args.input) as vcf_list_file:
-                vcf_list = vcf_list_file.read().splitlines()
-
-            results = Parallel(n_jobs=args.cpus) \
-                (delayed(util.process_vcf)(args, vcf, subtypes_dict, par) \
-                for vcf in vcf_list)
-
-            if args.rowwise:
-                count_matrix = np.vstack(results)
-
-                samples = np.array([])
-                for vcf in vcf_list:
-                    samples = np.append(samples, util.get_samples_vcf(args, vcf))
-
-            else:
-                nrow, ncol = results[1].shape
-                count_matrix = np.zeros((nrow, ncol))
-
-                for count_matrix_i in results:
-                    count_matrix = np.add(count_matrix, count_matrix_i)
-                samples = np.array([util.get_samples_vcf(args, vcf_list[1])])
-
-    elif args.mode == "maf":
-        data = util.process_maf(args, subtypes_dict)
-        count_matrix = data.M
-        samples = np.array([data.samples], dtype=str)
-
-    elif args.mode == "txt":
-        data = util.process_txt(args, subtypes_dict)
-        count_matrix = data.M
-        samples = np.array([data.samples], dtype=str)
-
-    elif args.mode == "agg":
-        data = util.aggregateM(args.input, subtypes_dict)
-        count_matrix = data.M
-        samples = np.array([data.samples], dtype=str)
+    #-----------------------------------------------------------------------------
+    data_in = util.processInput(args.mode, args, subtypes_dict)
+    data = data_in.data
+    count_matrix = data.M
+    samples = np.array([data.samples], dtype=str)
 
     #-----------------------------------------------------------------------------
     # Drop samples from M matrix with too few SNVs
@@ -368,7 +335,8 @@ def main():
             i += 1
 
         if lowsnv_samples:
-            count_matrix = count_matrix[np.sum(count_matrix, axis=1) >= args.minsnvs, ]
+            count_matrix = count_matrix[np.sum(count_matrix, axis=1) >= args.
+                                        minsnvs, ]
             samples = np.array([highsnv_samples])
             lowsnv_path = projdir + \
                 "/helmsman_snvs_lt" + str(args.minsnvs) + ".txt"
@@ -380,53 +348,50 @@ def main():
                      len(lowsnv_samples), args.minsnvs)
 
     #-----------------------------------------------------------------------------
-    # Write M and M_f matrices
+    # Get matrix decomposition and write output to files
     #-----------------------------------------------------------------------------
-    paths = {}
-    paths['M_path'] = projdir + "/" + args.matrixname + ".txt"
-
-    # M_f is the relative contribution of each subtype per sample
-    # adds 1e-4 to each count for error correction
-    # M_f = (M+1e-4)/(M.sum(axis=1))[:,None]
-    freq_matrix = count_matrix / (count_matrix.sum(axis=1) + 1e-8)[:, None]
-    paths['M_path_rates'] = projdir + "/" + args.matrixname + "_spectra.txt"
-
-    util.writeM(count_matrix, paths['M_path'], subtypes_dict, samples)
-    util.writeM(freq_matrix, paths['M_path_rates'], subtypes_dict, samples)
-    log.debug("Spectra count matrix saved to: %s", paths['M_path'])
-    log.debug("Spectra frequency matrix saved to: %s",
-              paths['M_path_rates'])
-
-    ###############################################################################
-    # Get matrix decomposition
-    ###############################################################################
-
     if args.decomp is not None:
-        decomp_data = util.DecompModel(freq_matrix, args.rank, args.seed, args.decomp)
+        decomp_data = util.DecompModel(count_matrix, args.rank, args.seed,
+                                       args.decomp)
 
-        # W matrix (contributions)
-        paths['W_path'] = projdir + "/W_components.txt"
-        util.writeW(decomp_data.W, paths['W_path'], samples)
-        log.debug("W matrix saved to: %s", paths['W_path'])
+        paths = {
+            'M_path': projdir + "/" + args.matrixname + ".txt",
+            'M_path_rates': projdir + "/" + args.matrixname + "_spectra.txt",
+            'W_path': projdir + "/W_components.txt",
+            'H_path': projdir + "/H_loadings.txt"
+        }
 
-        # H matrix (loadings)
-        paths['H_path'] = projdir + "/H_loadings.txt"
-        util.writeH(decomp_data.H, paths['H_path'], subtypes_dict)
-        log.debug("H matrix saved to: %s", paths['H_path'])
+        dat_out = util.writeOutput(paths, samples, subtypes_dict)
 
-    ###############################################################################
+        try:
+            dat_out.writeM(count_matrix)
+            log.debug("Spectra count matrix saved to: %s", paths['M_path'])
+            log.debug("Spectra frequency matrix saved to: %s",
+                      paths['M_path_rates'])
+        except IOError:
+            log.warning("could not write W matrix")
+        try:
+            dat_out.writeW(decomp_data)
+            log.debug("W matrix saved to: %s", paths['W_path'])
+        except IOError:
+            log.warning("could not write W matrix")
+        try:
+            dat_out.writeH(decomp_data)
+            log.debug("H matrix saved to: %s", paths['H_path'])
+        except IOError:
+            log.warning("could not write H matrix")
+
+    #-----------------------------------------------------------------------------
     # auto-generate R script to pass data to MSA packages
-    ###############################################################################
+    #-----------------------------------------------------------------------------
     if args.package:
         util.writeR(args.package, args.projectdir, args.matrixname)
-        log.info(
-            "To use this mutation spectra matrix with the %s R package, \
-            run the following command in R: \n \tsource(\"%s/Helmsman_to_%s.R\")",
-            args.package, args.projectdir, args.package)
+        log_message = "To use this mutation spectra matrix" + \
+            "with the {} R package, ".format(args.package) + \
+            "run the following command in R: \n" + \
+            "\n\t\tsource(\"{}/Helmsman_to_{}.R\")\n".format(args.projectdir, args.package)
+        log.info(log_message)
 
-    ###############################################################################
-    # Finish
-    ###############################################################################
     stop = timeit.default_timer()
     tottime = round(stop - start, 2)
     log.info("Total runtime: %s seconds", tottime)
