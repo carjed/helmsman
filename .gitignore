@@ -1,4 +1,5 @@
 .ipynb_checkpoints/**
+test/_config.yaml
 demo/**
 deprecated/**
 __pycache__/**
