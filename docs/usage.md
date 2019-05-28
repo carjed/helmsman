@@ -207,7 +207,7 @@ Note that the `chisq` outlier detection mode is generally more robust to low-SNV
 
 `--maxac [INT]`
 
-By default, *Helmsman* will evaluate only singleton SNVs (`--maxac 1`). To include more common SNVs, increase the value of this parameter. To include all SNVs, use `--maxac 0`. This is not recommended when using *Helmsman* for QC functionality, but may be useful for more general mutation signature analysis.
+By default, *Helmsman* will evaluate all SNVs present in the input data [`--maxac 0`]. To include more common SNVs, up to a specific allele count threshold, increase the value of this parameter. For example, `--maxac 2` will include only singletons and doubletons.
 
 ## Output options
 
