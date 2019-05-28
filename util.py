@@ -102,7 +102,10 @@ util_log = get_logger(__name__, level="DEBUG")
 # Manipulate sequence motifs etc.
 ###############################################################################
 def getCategory(mu_type):
-    """ collapse mutation types per strand symmetry """
+    """
+    collapse mutation types per strand symmetry
+
+    """
 
     # if re.match("^[ACGT]*$", mu_type):
     if mu_type in ('AC', 'TG'):
@@ -123,7 +126,10 @@ def getCategory(mu_type):
 
 
 def getMotif(sequence):
-    """ query reference genome for local sequence motif """
+    """
+    query reference genome for local sequence motif
+
+    """
 
     motif = Seq(sequence, IUPAC.unambiguous_dna)
     altmotif = motif.reverse_complement()
@@ -140,7 +146,11 @@ def getMotif(sequence):
 
 
 def indexSubtypes(motiflength):
-    """ define k-mer mutation subtypes """
+    """
+    define k-mer mutation subtypes
+
+    """
+
     categories = ["T_G", "T_C", "T_A", "C_G", "C_T", "C_A"]
     bases = ["A", "C", "G", "T"]
     flank = (motiflength - 1) // 2
@@ -178,7 +188,11 @@ def indexSubtypes(motiflength):
 
 
 def indexGroups(samplefile, groupvar):
-    """ Build dictionary with sample ID as key, group ID as value """
+    """
+    Build dictionary with sample ID as key, group ID as value
+
+    """
+
     sg_dict = {}
 
     f = open(samplefile, 'r', encoding="utf-8")
@@ -191,7 +205,11 @@ def indexGroups(samplefile, groupvar):
 
 
 def get_samples(sample_file):
-    """ get samples from input M matrix when using aggregation mode """
+    """
+    get samples from input M matrix when using aggregation mode
+
+    """
+
     samples = np.loadtxt(
         sample_file, dtype='S120', skiprows=1, delimiter='\t', usecols=(0, ))
 
@@ -201,7 +219,11 @@ def get_samples(sample_file):
 
 
 def parseSampleFile(samplefile):
-    """ get list of samples to keep if samplefile supplied """
+    """
+    get list of samples to keep if samplefile supplied
+
+    """
+
     # f = open(args.input, 'r', encoding = "ISO-8859-1")
     f = open(samplefile, 'r', encoding="utf-8")
     reader = csv.DictReader(f, delimiter='\t')
@@ -213,7 +235,11 @@ def parseSampleFile(samplefile):
 
 
 def get_samples_vcf(args, inputvcf):
-    """ get samples from VCF file """
+    """
+    get samples from VCF file
+
+    """
+
     if args.samplefile:
         keep_samples = parseSampleFile(args.samplefile)
         vcf_reader = VCF(
@@ -235,6 +261,7 @@ class processInput:
     - MAF format
     - plain text format
     - Aggregation of existing subtype count matrices
+
     """
 
     def __init__(self, mode, args, subtypes_dict, par=False):
@@ -268,7 +295,7 @@ class processInput:
 
                     samples = np.array([])
                     for vcf in vcf_list:
-                        samples = np.append(samples, self.get_samples_vcf(vcf))
+                        samples = np.append(samples, get_samples_vcf(args, vcf))
 
                 else:
                     nrow, ncol = results[1].shape
@@ -282,7 +309,10 @@ class processInput:
                     count_matrix, samples)
 
     def process_vcf(self, inputfile):
-        """ Main function for parsing VCF """
+        """
+        Main function for parsing VCF
+
+        """
         # initialize reference genome
         fasta_reader = Fasta(self.args.fastafile, read_ahead=1000000)
 
@@ -428,7 +458,11 @@ class processInput:
         return out
 
     def process_maf(self):
-        """ process MAF files """
+        """
+        process MAF files
+
+        """
+
         fasta_reader = Fasta(self.args.fastafile, read_ahead=1000000)
 
         nbp = (self.args.length - 1) // 2
@@ -513,7 +547,11 @@ class processInput:
         return out
 
     def process_agg(self):
-        """ aggregate M matrices from list of input files """
+        """
+        aggregate M matrices from list of input files
+
+        """
+
         inputM = self.args.input
         colnames = ["ID"]
         M_colnames = colnames + list(sorted(self.subtypes_dict.keys()))
@@ -564,6 +602,7 @@ class processInput:
         """
         process tab-delimited text file, containing the following columns:
         CHR    POS    REF    ALT    SAMPLE_ID
+
         """
 
         fasta_reader = Fasta(self.args.fastafile, read_ahead=1000000)
@@ -617,7 +656,10 @@ class processInput:
 
 
 class DecompModel:
-    """ Class for fitting PCA or NMF models """
+    """
+    Class for fitting PCA and NMF models
+
+    """
 
     def __init__(self, M_run, rank, seed, decomp):
         self.M_run = M_run / (M_run.sum(axis=1) + 1e-8)[:, None]
@@ -665,7 +707,7 @@ class DecompModel:
         elif self.decomp == "nmf":
 
             if self.rank > 0:
-                model = self.NMFmod(self.rank)
+                model = self.run_nmf_model(self.rank)
                 self.modrank = self.rank
 
             elif self.rank == 0:
@@ -673,13 +715,13 @@ class DecompModel:
                                decomp)
                 self.evarprev = 0
                 for i in range(1, self.M_run.shape[0]):
-                    model = self.NMFmod(rank=i)
+                    model = self.run_nmf_model(rank=i)
                     model_fit = model()
                     evar = model_fit.fit.evar()
                     self.modrank = i
 
                     if (i > 2 and evar - evarprev < 0.001):
-                        model = self.NMFmod(rank=i - 1)
+                        model = self.run_nmf_model(rank=i - 1)
                         self.modrank = i - 1
                         break
 
@@ -697,7 +739,11 @@ class DecompModel:
     # Specify NMF model
     # options can be added/modified per
     # http://nimfa.biolab.si/nimfa.methods.factorization.nmf.html
-    def NMFmod(self, rank):
+    def run_nmf_model(self, rank):
+        """
+        Run NMF model
+
+        """
 
         prng = np.random.RandomState(self.seed)
         W_init = prng.rand(self.M_run.shape[0], rank)
@@ -717,8 +763,12 @@ class DecompModel:
 
 
 class writeOutput:
+    """
+    Class of functions for writing the output of Helmsman.
+
+    """
+
     def __init__(self, dat_paths, samples, subtypes_dict):
-        """ abc """
         self.dat_paths = dat_paths
         self.samples = samples
         self.subtypes_dict = subtypes_dict
@@ -762,7 +812,11 @@ class writeOutput:
 
 
 def writeR(package, projectdir, matrixname):
-    """ auto-generate R script """
+    """
+    auto-generate R script
+
+    """
+
     rscript_path = projectdir + "/" + "Helmsman_to_" + package + ".R"
     rscript = open(rscript_path, "w+")
     print("library(\"" + package + "\")", file=rscript)
