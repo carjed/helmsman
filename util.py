@@ -337,6 +337,15 @@ class processInput:
 
             sg_dict = indexGroups(self.args.samplefile, self.args.groupvar)
             samples = sorted(list(set(sg_dict.values())))
+            
+            # get boolean vector of samples that are in sample file
+            samples_keep_match = np.isin(all_samples, list(sg_dict.keys()))
+            
+            # get indices of matching samples
+            samples_keep_idx = np.where(samples_keep_match)
+            
+            # get list of individual sample ids to keep
+            samples_keep = sorted(list(set(sg_dict.keys())))
 
             util_log.debug("%s samples will be pooled into %s groups: %s",
                            len(all_samples), len(samples), ",".join(samples))
@@ -411,19 +420,40 @@ class processInput:
 
             # currently only works with singletons--
             if (self.args.samplefile and self.args.groupvar):
+                
+                gt_new = record.gt_types
 
-                if record.gt_types.sum() == 0:
+                if (self.args.impute and 3 in gt_new):
+                    gt_complete = gt_new[gt_new != 3]
+                    freq = sum(gt_complete) / len(gt_complete)
+                    gt_new[gt_new == 3] = freq
+
+                else:
+                    gt_new[gt_new == 3] = 0
+
+                # if not any("/" in b for b in record.gt_bases):
+                if self.args.haploid:
+                    gt_new = np.divide(gt_new, 2.)
+                
+                # get array of genotypes only for samples in samplefile
+                gt_sub = gt_new[samples_keep_idx]
+
+                if gt_sub.sum() == 0:
                     numsites_skip += 1
                     continue
+                
+                # initialize dict of group allele counts = 0
+                sg_counts = {k: 0 for k in sorted(list(set(sg_dict.values())))}
+                
+                # initialize dict of allele counts per sample
+                d2 = dict(zip(samples_keep, gt_sub))
+                
+                # iterate per-sample counts and update per-group counts
+                for key, value in d2.items():
+                    sg_counts[sg_dict[key]] += value
 
-                carrier = all_samples[record.gt_types.tolist().index(1)]
-                if carrier not in sg_dict:
-                    numsites_skip += 1
-                    continue
-
-                sample_gp = sg_dict[carrier]
-                ind = samples.index(sample_gp)
-                M[ind, st] += 1
+                # add to matrix
+                M[:, st] = M[:, st] + list(sg_counts.values())
                 numsites_keep += 1
 
             else:
