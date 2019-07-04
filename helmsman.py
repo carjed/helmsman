@@ -26,12 +26,13 @@ def main():
     # get latest version from github tags
     # via https://stackoverflow.com/questions/14989858
     try:
-        v_dir = os.path.dirname(os.path.realpath(__file__)) + "/.git/refs/tags"
-        files = os.listdir(v_dir)
-        files = [os.path.join(v_dir, f) for f in files] # add path to each file
-        files.sort(key=lambda x: os.path.getmtime(x))
-        version = files[-1]
-        version = os.path.basename(version)
+        # v_dir = os.path.dirname(os.path.realpath(__file__)) + "/.git/refs/tags"
+        # files = os.listdir(v_dir)
+        # files = [os.path.join(v_dir, f) for f in files] # add path to each file
+        # files.sort(key=lambda x: os.path.getmtime(x))
+        # version = files[-1]
+        # version = os.path.basename(version)
+        version = "1.4.2"
     except AttributeError:
         version = "[version not found]"
 
@@ -283,12 +284,13 @@ def main():
     try:
         # version = subprocess.check_output(["git",
         #                                   "describe"]).strip().decode('utf-8')
-        v_dir = os.path.dirname(os.path.realpath(__file__)) + "/.git/refs/tags"
-        files = os.listdir(v_dir)
-        files = [os.path.join(v_dir, f) for f in files] # add path to each file
-        files.sort(key=lambda x: os.path.getmtime(x))
-        version = files[-1]
-        version = os.path.basename(version)
+        # v_dir = os.path.dirname(os.path.realpath(__file__)) + "/.git/refs/tags"
+        # files = os.listdir(v_dir)
+        # files = [os.path.join(v_dir, f) for f in files] # add path to each file
+        # files.sort(key=lambda x: os.path.getmtime(x))
+        # version = files[-1]
+        # version = os.path.basename(version)
+        version = "1.4.2"
         log.info("%s %s", sys.argv[0], version)
     except AttributeError:
         version = "[version not found]"
