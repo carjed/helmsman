@@ -360,26 +360,27 @@ def main():
     #-----------------------------------------------------------------------------
     # Get matrix decomposition and write output to files
     #-----------------------------------------------------------------------------
+    paths = {
+        'M_path': projdir + "/" + args.matrixname + ".txt",
+        'M_path_rates': projdir + "/" + args.matrixname + "_spectra.txt",
+        'W_path': projdir + "/W_components.txt",
+        'H_path': projdir + "/H_loadings.txt"
+    }
+
+    dat_out = util.writeOutput(paths, samples, subtypes_dict)
+
+    try:
+        dat_out.writeM(count_matrix)
+        log.debug("Spectra count matrix saved to: %s", paths['M_path'])
+        log.debug("Spectra frequency matrix saved to: %s",
+                  paths['M_path_rates'])
+    except IOError:
+        log.warning("could not write W matrix")
+
     if args.decomp is not None:
         decomp_data = util.DecompModel(count_matrix, args.rank, args.seed,
                                        args.decomp)
 
-        paths = {
-            'M_path': projdir + "/" + args.matrixname + ".txt",
-            'M_path_rates': projdir + "/" + args.matrixname + "_spectra.txt",
-            'W_path': projdir + "/W_components.txt",
-            'H_path': projdir + "/H_loadings.txt"
-        }
-
-        dat_out = util.writeOutput(paths, samples, subtypes_dict)
-
-        try:
-            dat_out.writeM(count_matrix)
-            log.debug("Spectra count matrix saved to: %s", paths['M_path'])
-            log.debug("Spectra frequency matrix saved to: %s",
-                      paths['M_path_rates'])
-        except IOError:
-            log.warning("could not write W matrix")
         try:
             dat_out.writeW(decomp_data)
             log.debug("W matrix saved to: %s", paths['W_path'])
