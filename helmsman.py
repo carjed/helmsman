@@ -26,12 +26,13 @@ def main():
     # get latest version from github tags
     # via https://stackoverflow.com/questions/14989858
     try:
-        v_dir = os.path.dirname(os.path.realpath(__file__)) + "/.git/refs/tags"
-        files = os.listdir(v_dir)
-        files = [os.path.join(v_dir, f) for f in files] # add path to each file
-        files.sort(key=lambda x: os.path.getmtime(x))
-        version = files[-1]
-        version = os.path.basename(version)
+        # v_dir = os.path.dirname(os.path.realpath(__file__)) + "/.git/refs/tags"
+        # files = os.listdir(v_dir)
+        # files = [os.path.join(v_dir, f) for f in files] # add path to each file
+        # files.sort(key=lambda x: os.path.getmtime(x))
+        # version = files[-1]
+        # version = os.path.basename(version)
+        version = "1.4.2"
     except AttributeError:
         version = "[version not found]"
 
@@ -283,12 +284,13 @@ def main():
     try:
         # version = subprocess.check_output(["git",
         #                                   "describe"]).strip().decode('utf-8')
-        v_dir = os.path.dirname(os.path.realpath(__file__)) + "/.git/refs/tags"
-        files = os.listdir(v_dir)
-        files = [os.path.join(v_dir, f) for f in files] # add path to each file
-        files.sort(key=lambda x: os.path.getmtime(x))
-        version = files[-1]
-        version = os.path.basename(version)
+        # v_dir = os.path.dirname(os.path.realpath(__file__)) + "/.git/refs/tags"
+        # files = os.listdir(v_dir)
+        # files = [os.path.join(v_dir, f) for f in files] # add path to each file
+        # files.sort(key=lambda x: os.path.getmtime(x))
+        # version = files[-1]
+        # version = os.path.basename(version)
+        version = "1.4.2"
         log.info("%s %s", sys.argv[0], version)
     except AttributeError:
         version = "[version not found]"
@@ -360,26 +362,27 @@ def main():
     #-----------------------------------------------------------------------------
     # Get matrix decomposition and write output to files
     #-----------------------------------------------------------------------------
+    paths = {
+        'M_path': projdir + "/" + args.matrixname + ".txt",
+        'M_path_rates': projdir + "/" + args.matrixname + "_spectra.txt",
+        'W_path': projdir + "/W_components.txt",
+        'H_path': projdir + "/H_loadings.txt"
+    }
+
+    dat_out = util.writeOutput(paths, samples, subtypes_dict)
+
+    try:
+        dat_out.writeM(count_matrix)
+        log.debug("Spectra count matrix saved to: %s", paths['M_path'])
+        log.debug("Spectra frequency matrix saved to: %s",
+                  paths['M_path_rates'])
+    except IOError:
+        log.warning("could not write W matrix")
+
     if args.decomp is not None:
         decomp_data = util.DecompModel(count_matrix, args.rank, args.seed,
                                        args.decomp)
 
-        paths = {
-            'M_path': projdir + "/" + args.matrixname + ".txt",
-            'M_path_rates': projdir + "/" + args.matrixname + "_spectra.txt",
-            'W_path': projdir + "/W_components.txt",
-            'H_path': projdir + "/H_loadings.txt"
-        }
-
-        dat_out = util.writeOutput(paths, samples, subtypes_dict)
-
-        try:
-            dat_out.writeM(count_matrix)
-            log.debug("Spectra count matrix saved to: %s", paths['M_path'])
-            log.debug("Spectra frequency matrix saved to: %s",
-                      paths['M_path_rates'])
-        except IOError:
-            log.warning("could not write W matrix")
         try:
             dat_out.writeW(decomp_data)
             log.debug("W matrix saved to: %s", paths['W_path'])
