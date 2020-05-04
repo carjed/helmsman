@@ -337,13 +337,13 @@ class processInput:
 
             sg_dict = indexGroups(self.args.samplefile, self.args.groupvar)
             samples = sorted(list(set(sg_dict.values())))
-            
+
             # get boolean vector of samples that are in sample file
             samples_keep_match = np.isin(all_samples, list(sg_dict.keys()))
-            
+
             # get indices of matching samples
             samples_keep_idx = np.where(samples_keep_match)
-            
+
             # get list of individual sample ids to keep
             samples_keep = sorted(list(set(sg_dict.keys())))
 
@@ -420,7 +420,7 @@ class processInput:
 
             # currently only works with singletons--
             if (self.args.samplefile and self.args.groupvar):
-                
+
                 gt_new = record.gt_types
 
                 if (self.args.impute and 3 in gt_new):
@@ -434,20 +434,20 @@ class processInput:
                 # if not any("/" in b for b in record.gt_bases):
                 if self.args.haploid:
                     gt_new = np.divide(gt_new, 2.)
-                
+
                 # get array of genotypes only for samples in samplefile
                 gt_sub = gt_new[samples_keep_idx]
 
                 if gt_sub.sum() == 0:
                     numsites_skip += 1
                     continue
-                
+
                 # initialize dict of group allele counts = 0
                 sg_counts = {k: 0 for k in sorted(list(set(sg_dict.values())))}
-                
+
                 # initialize dict of allele counts per sample
                 d2 = dict(zip(samples_keep, gt_sub))
-                
+
                 # iterate per-sample counts and update per-group counts
                 for key, value in d2.items():
                     sg_counts[sg_dict[key]] += value
@@ -597,11 +597,14 @@ class processInput:
 
                 M_out = np.array([M_colnames])
 
+                samples = np.empty((0, 100))
+
                 for mfile in file_list:
-                    samples = get_samples(mfile)
+                    samples_it = get_samples(mfile)
+                    samples = np.concatenate((samples, samples_it), axis=None)
 
                     M_it = np.loadtxt(mfile, skiprows=1, usecols=colrange)
-                    M_it = np.concatenate((np.array([samples]).T, M_it),
+                    M_it = np.concatenate((np.array([samples_it]).T, M_it),
                                           axis=1)
                     M_out = np.concatenate((M_out, M_it), axis=0)
 
