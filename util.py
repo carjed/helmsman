@@ -668,8 +668,10 @@ class processInput:
                         # eprint("lseq:", lseq)
                     motif_a = getMotif(lseq)
                     subtype = str(category + "." + motif_a)
-                    st = self.subtypes_dict[subtype]
-
+                    try:
+                        st = self.subtypes_dict[subtype]
+                    except KeyError:
+                        continue ##This is an addition from me- ignore entries that have an N on either side because you can't do signature analysis with them anyways. Jfc this wasn't already included
                     if sample not in samples_dict:
                         samples_dict[sample] = {}
 
@@ -677,9 +679,13 @@ class processInput:
                         samples_dict[sample][subtype] = 1
                     else:
                         samples_dict[sample][subtype] += 1
-
-            M = pd.DataFrame(samples_dict).T.fillna(0).values
-            samples = sorted(samples_dict)
+            mdf = pd.DataFrame(samples_dict).T.fillna(0)
+            samples = mdf.index.tolist()
+            util_log.debug("MyDebug SampleSet: {}".format(samples))
+            M = mdf.values
+            #samples = sorted(samples_dict) #another addition from me, attempting to resolve an issue where they're independently sorting the label column and making a giant mess of things.
+            #util_log.debug("MyDebug Columns: {}".format(samples))
+            #samples = samples_dict
 
         out = collections.namedtuple('Out', ['M', 'samples'])(M, samples)
         return out
@@ -823,9 +829,10 @@ class writeOutput:
 
     def writeM(self, count_matrix):
         """ write M matrix """
-
+        util_log.debug("MyDebug Subtypes: {} {}".format(len(self.subtypes_dict.keys()), list(sorted(self.subtypes_dict.keys()))))
+        util_log.debug("MyDebug CountMat: {}, {}".format(count_matrix.shape, count_matrix))
         count_matrix_df = pd.DataFrame(
-            data=count_matrix,
+            data=count_matrix, #getting len of unsized object error.
             index=self.samples[0],
             columns=list(sorted(self.subtypes_dict.keys())))
         count_matrix_df.to_csv(
