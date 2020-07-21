@@ -668,10 +668,10 @@ class processInput:
                         # eprint("lseq:", lseq)
                     motif_a = getMotif(lseq)
                     subtype = str(category + "." + motif_a)
-                    try:
-                        st = self.subtypes_dict[subtype]
-                    except KeyError:
-                        continue ##This is an addition from Jakob McBroome- ignore entries that have an N on either side or otherwise don't fit into the subtype dictionary.
+                    
+                    if subtype not in self.subtypes_dict:
+                        continue
+
                     if sample not in samples_dict:
                         samples_dict[sample] = {}
 
@@ -825,6 +825,7 @@ class writeOutput:
 
     def writeM(self, count_matrix):
         """ write M matrix """
+
         count_matrix_df = pd.DataFrame(
             data=count_matrix,
             index=self.samples[0],
