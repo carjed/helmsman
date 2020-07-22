@@ -671,7 +671,9 @@ class processInput:
                         # eprint("lseq:", lseq)
                     motif_a = getMotif(lseq)
                     subtype = str(category + "." + motif_a)
-                    st = self.subtypes_dict[subtype]
+                    
+                    if subtype not in self.subtypes_dict:
+                        continue
 
                     if sample not in samples_dict:
                         samples_dict[sample] = {}
@@ -680,9 +682,9 @@ class processInput:
                         samples_dict[sample][subtype] = 1
                     else:
                         samples_dict[sample][subtype] += 1
-
-            M = pd.DataFrame(samples_dict).T.fillna(0).values
-            samples = sorted(samples_dict)
+            mdf = pd.DataFrame(samples_dict).T.fillna(0)
+            samples = mdf.index.tolist() #instead of using samples_dict with sorted(), which leads to mismatching, simply retain the explicit ordering of the matrix dataframe.
+            M = mdf.values 
 
         out = collections.namedtuple('Out', ['M', 'samples'])(M, samples)
         return out
