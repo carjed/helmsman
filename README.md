@@ -1,3 +1,14 @@
+
+# Announcements
+
+#### 2020-07-22 CRITICAL BUGFIX
+
+In versions 1.4.4 and earlier, when using Helmsman to process tab-delimited text input (i.e., with the `--mode txt` option), a bug in the code caused sample labels to be incorrectly sorted with respect to the final mutation counts, which resulted in mutation counts and spectra being scrambled across sample labels.
+
+This issue did not affect any of the other input modes (e.g., `--mode vcf`, `--mode agg`, or `--mode maf`), and does not appear to have impacted the results of any [papers or preprints that have used Helmsman](https://scholar.google.com/scholar?oi=bibs&hl=en&cites=14188698113080049200,10978131107323100111). We urge any users that are processing data with `--mode txt` to ensure that they are using version 1.5.0+ of Helmsman.
+
+Thanks to [@jmcbroome](https://github.com/jmcbroome) for finding and fixing this bug.
+
 <img src="https://raw.githubusercontent.com/carjed/helmsman/master/assets/Helmsman_white_bg.png" width="400" height="400">
 
 [![DOI](https://zenodo.org/badge/136064814.svg)](https://zenodo.org/badge/latestdoi/136064814) [![Docs](https://img.shields.io/badge/docs-latest-blue.svg)](http://www.jedidiahcarlson.com/docs/helmsman) [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg?style=flat)](https://opensource.org/licenses/MIT) [![Binder](https://img.shields.io/badge/launch-binder-d06681.svg?style=flat)](https://mybinder.org/v2/gh/carjed/helmsman/master) [![Build Status](https://travis-ci.org/carjed/helmsman.svg?branch=master)](https://travis-ci.org/carjed/helmsman)
