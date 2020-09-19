@@ -32,7 +32,7 @@ def main():
         # files.sort(key=lambda x: os.path.getmtime(x))
         # version = files[-1]
         # version = os.path.basename(version)
-        version = "1.4.2"
+        version = "1.5.2"
     except AttributeError:
         version = "[version not found]"
 
