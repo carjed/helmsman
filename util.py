@@ -522,6 +522,9 @@ class processInput:
             alt = row['Tumor_Seq_Allele2']
             row_chr = row['Chromosome']
             sample = row[self.args.groupvar]
+            
+            if sample not in samples_dict:
+                        samples_dict[sample] = self.subtypes_dict.fromkeys(self.subtypes_dict, 0)
 
             # check chromosome formatting matches between MAF and fasta files
             if counter == 0:
@@ -558,13 +561,14 @@ class processInput:
             subtype = str(category + "." + motif_a)
             # st = subtypes_dict[subtype]
 
-            if sample not in samples_dict:
-                samples_dict[sample] = {}
+            if subtype not in self.subtypes_dict:
+                continue
 
-            if subtype not in samples_dict[sample]:
-                samples_dict[sample][subtype] = 1
-            else:
-                samples_dict[sample][subtype] += 1
+            samples_dict[sample][subtype] += 1
+
+            mdf = pd.DataFrame(samples_dict).T.fillna(0)
+            samples = mdf.index.tolist() #instead of using samples_dict with sorted(), which leads to mismatching, simply retain the explicit ordering of the matrix dataframe.
+            M = mdf.values
 
             if counter % 1000 != 0:
                 continue
@@ -657,6 +661,9 @@ class processInput:
                 alt = row[3]
                 sample = row[4]
 
+                if sample not in samples_dict:
+                        samples_dict[sample] = self.subtypes_dict.fromkeys(self.subtypes_dict, 0)
+
                 if chrom != chrseq:
                     sequence = fasta_reader[chrom]
                     chrseq = chrom
@@ -671,20 +678,15 @@ class processInput:
                         # eprint("lseq:", lseq)
                     motif_a = getMotif(lseq)
                     subtype = str(category + "." + motif_a)
-                    
+
                     if subtype not in self.subtypes_dict:
                         continue
 
-                    if sample not in samples_dict:
-                        samples_dict[sample] = {}
+                    samples_dict[sample][subtype] += 1
 
-                    if subtype not in samples_dict[sample]:
-                        samples_dict[sample][subtype] = 1
-                    else:
-                        samples_dict[sample][subtype] += 1
             mdf = pd.DataFrame(samples_dict).T.fillna(0)
             samples = mdf.index.tolist() #instead of using samples_dict with sorted(), which leads to mismatching, simply retain the explicit ordering of the matrix dataframe.
-            M = mdf.values 
+            M = mdf.values
 
         out = collections.namedtuple('Out', ['M', 'samples'])(M, samples)
         return out
