@@ -113,3 +113,4 @@ If you use Helmsman in your research, please cite our [paper](https://bmcgenomic
 -------------
 
 The Helmsman mascot was designed by Robert James Russell—view more of his work at http://www.robertjamesrussell.com/art/ and follow him on Twitter at [@robhollywood](https://twitter.com/robhollywood)!
+
